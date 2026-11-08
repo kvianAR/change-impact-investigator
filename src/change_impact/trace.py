@@ -211,7 +211,10 @@ def _relationships(index: dict[str, Module]) -> tuple[dict[str, Symbol], list[Ed
                         "reason": "runtime-selected or unresolved call target",
                     }
                 )
-    return symbols, edges, unresolved
+    from .dependencies import dependency_edges
+
+    injected, dependency_warnings = dependency_edges(index, symbols)
+    return symbols, list(dict.fromkeys([*edges, *injected])), unresolved + dependency_warnings
 
 
 def relationships(index: dict[str, Module]) -> tuple[dict[str, Symbol], list[Edge], list[dict]]:

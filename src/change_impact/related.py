@@ -212,6 +212,11 @@ def _discover_route_map(index: dict[str, Module]) -> tuple[list[dict], list[dict
                         "path": _join_path(current_prefix, declaration["path"]),
                         "app": app,
                         "mount_evidence": chain,
+                        "registration_evidence": [
+                            {"file": objects[key]["file"], "line": objects[key]["line"]}
+                            for key in sorted(seen)
+                        ]
+                        + chain,
                     }
                 )
         for mount in mounts:
@@ -251,7 +256,11 @@ def discover_route_map(index: dict[str, Module]) -> tuple[list[dict], list[dict]
     if memo is None:
         return _discover_route_map(index)
     if "routes" not in memo:
-        memo["routes"] = _discover_route_map(index)
+        from .factories import factory_routes
+
+        routes, diagnostics = _discover_route_map(index)
+        factory_found, factory_warnings = factory_routes(index, _discover_route_map)
+        memo["routes"] = (routes + factory_found, diagnostics + factory_warnings)
         index.stats["route_builds"] = index.stats.get("route_builds", 0) + 1
     return memo["routes"]
 
