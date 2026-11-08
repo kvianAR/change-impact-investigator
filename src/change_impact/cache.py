@@ -134,6 +134,28 @@ class IndexCache:
         except (ValueError, TypeError, sqlite3.Error, RecursionError):
             self.status = "write_unavailable"
 
+    def get_data(self, key: str):
+        if self.connection is None:
+            return None
+        try:
+            row = self.connection.execute(
+                "SELECT payload FROM source_index WHERE key = ?", (key,)
+            ).fetchone()
+            return json.loads(row[0]) if row else None
+        except (ValueError, sqlite3.Error):
+            return None
+
+    def put_data(self, key: str, value) -> None:
+        if self.connection is None:
+            return
+        try:
+            self.connection.execute(
+                "INSERT OR REPLACE INTO source_index VALUES (?, ?, ?)",
+                (key, json.dumps(value), time.time()),
+            )
+        except (ValueError, sqlite3.Error):
+            self.status = "write_unavailable"
+
     def __exit__(self, *error):
         if self.connection is None:
             return

@@ -1,0 +1,9 @@
+{
+  "name": "change-impact-investigator-typescript",
+  "private": true,
+  "version": "0.2.0",
+  "description": "Compiler runtime for the optional TypeScript analysis backend",
+  "devDependencies": {
+    "typescript": "5.9.3"
+  }
+}

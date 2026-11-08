@@ -75,6 +75,7 @@ class Module:
     ast_hash: str = ""
     binding_hash: str = ""
     class_bases: dict[str, list[str]] = field(default_factory=dict)
+    language: str = "python"
 
 
 class RepositoryIndex(dict[str, Module]):
@@ -83,6 +84,8 @@ class RepositoryIndex(dict[str, Module]):
         self.diagnostics: list[dict] = []
         self.stats = {"parsed_files": 0, "cache_hits": 0}
         self._memo: dict = {}
+        self.language = "python"
+        self.typescript_tests: list[dict] = []
 
 
 def _binding_hash(tree: ast.Module) -> str:

@@ -24,10 +24,14 @@ change-impact-mcp = "change_impact.server:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+change_impact = ["*.cjs"]
+
 [tool.uv]
 cache-keys = [
     { file = "pyproject.toml" },
     { file = "src/**/*.py" },
+    { file = "src/**/*.cjs" },
     { file = "README.md" },
     { file = "LICENSE" },
 ]
