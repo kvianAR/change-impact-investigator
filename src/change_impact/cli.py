@@ -17,7 +17,7 @@ from .trace import trace_callers
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Investigate Python change impact with source evidence"
+        description="Investigate Python and TypeScript change impact with source evidence"
     )
     parser.add_argument(
         "command",

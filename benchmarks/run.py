@@ -10,6 +10,7 @@ import subprocess
 from pathlib import Path
 from time import perf_counter
 
+from change_impact import __version__
 from change_impact.repository import load_index
 from change_impact.trace import trace_callers
 
@@ -81,6 +82,7 @@ def main() -> None:
     cases = json.loads(Path(__file__).with_name("cases.json").read_text())
     results = [run_case(case, args.repos_dir.resolve(), args.reset_cache) for case in cases]
     report = {
+        "tool_version": __version__,
         "python": platform.python_version(),
         "machine": platform.machine(),
         "scope": "Nine manually labeled direct caller symbols across three pinned public repositories. These cases do not establish repository-wide precision or recall.",

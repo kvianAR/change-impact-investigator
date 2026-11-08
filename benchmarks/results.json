@@ -1,4 +1,5 @@
 {
+  "tool_version": "0.2.0",
   "python": "3.11.17",
   "machine": "arm64",
   "scope": "Nine manually labeled direct caller symbols across three pinned public repositories. These cases do not establish repository-wide precision or recall.",
@@ -78,9 +79,9 @@
       "unexpected": [],
       "precision": 1.0,
       "recall": 1.0,
-      "initial_index_seconds": 0.5209,
-      "warm_index_seconds": 0.174,
-      "query_seconds": 0.0483,
+      "initial_index_seconds": 1.5387,
+      "warm_index_seconds": 0.4239,
+      "query_seconds": 0.113,
       "initial_stats": {
         "parsed_files": 24,
         "cache_hits": 0,
@@ -183,9 +184,9 @@
       "unexpected": [],
       "precision": 1.0,
       "recall": 1.0,
-      "initial_index_seconds": 8.9136,
-      "warm_index_seconds": 3.8527,
-      "query_seconds": 7.7943,
+      "initial_index_seconds": 65.5376,
+      "warm_index_seconds": 12.6098,
+      "query_seconds": 10.4122,
       "initial_stats": {
         "parsed_files": 1219,
         "cache_hits": 0,
@@ -233,8 +234,8 @@
       "unexpected": [],
       "precision": 1.0,
       "recall": 1.0,
-      "initial_index_seconds": 0.6985,
-      "warm_index_seconds": 0.1233,
+      "initial_index_seconds": 0.9258,
+      "warm_index_seconds": 0.0704,
       "query_seconds": 0.0002,
       "initial_stats": {
         "parsed_files": 49,

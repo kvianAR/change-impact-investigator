@@ -32,14 +32,14 @@ def create_server():
     def trace_callers_tool(
         repo: str, symbol: str, depth: int = 3, language: str = "python"
     ) -> dict:
-        """Trace Python callers of a symbol with file and line evidence."""
+        """Trace Python or TypeScript callers with file and line evidence. Select language explicitly."""
         return trace_callers(load_index(Path(repo), language), symbol, depth)
 
     @server.tool(name="find_related_tests")
     def find_related_tests_tool(
         repo: str, symbol: str, depth: int = 8, language: str = "python"
     ) -> list[dict]:
-        """Find pytest tests linked by calls, fixtures, or affected HTTP path candidates."""
+        """Find pytest or TypeScript tests linked by calls, fixtures, or HTTP path candidates."""
         return find_related_tests(load_index(Path(repo), language), symbol, depth)
 
     @server.tool(name="inspect_change_impact")
@@ -50,7 +50,7 @@ def create_server():
         depth: int = 8,
         language: str = "python",
     ) -> dict:
-        """Inspect Python working tree changes against a Git base and report source evidence."""
+        """Inspect source changes against a Git base. Supports python, typescript, and auto backends."""
         return inspect_change_impact(Path(repo), symbol, base, depth, language)
 
     @server.tool(name="create_impact_baseline")

@@ -8,7 +8,7 @@
 4. FastAPI route and related pytest discovery.
 5. Git diff impact report and MCP tools.
 
-The first three steps were pushed individually. Subsequent work follows one commit and push per round.
+The first three steps were pushed individually. Rounds 2–4 used one commit per round. Round 5 follows the user's later requirement for at least ten meaningful commits.
 
 ## Round 2 — completed
 
@@ -34,9 +34,14 @@ The first three steps were pushed individually. Subsequent work follows one comm
 4. Package the usage guide, repeatable demo, and release checks.
 5. Run full round-end verification and publish the completed Python release.
 
-## Beyond version 0.1
+## Round 5 — completed in version 0.2
 
-- Persistent incremental indexing and large-repository accuracy benchmarks.
-- More type and inheritance resolution, framework adapters, and TypeScript support.
+1. Add persistent content-addressed indexes, cache statistics, and reusable analysis graphs.
+2. Add C3 inheritance, typed receivers, FastAPI injection/factories, Flask blueprints, and Django URL/view adapters.
+3. Add the TypeScript compiler backend, mixed-language CLI/MCP tools, Express/test links, Git diffs, and language-aware snapshots.
+4. Run pinned public-repository benchmarks and fix discovered cache, dispatch, route, and invalidation regressions.
+5. Execute framework/MCP/TypeScript runtime checks, package the release, update guides, and verify CI.
+
+This round contains fifteen meaningful feature, fix, benchmark, verification, and release commits. Every commit was pushed.
 
 Static analysis cannot prove all runtime behavior. Reports separate static links, candidates, diagnostics, and unresolved dynamic calls.

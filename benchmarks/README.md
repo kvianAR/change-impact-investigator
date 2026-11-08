@@ -21,8 +21,8 @@ Fetching creates new checkouts or verifies an existing checkout's revision. Exis
 
 | Repository | Indexed modules | Initial index | Warm index | Labeled callers |
 | --- | ---: | ---: | ---: | ---: |
-| Flask | 24 | 0.5209 s | 0.1740 s | 4 |
-| FastAPI | 1,219 | 8.9136 s | 3.8527 s | 4 |
-| ts-extras | 49 | 0.6985 s | 0.1233 s | 1 |
+| Flask | 24 | 1.5387 s | 0.4239 s | 4 |
+| FastAPI | 1,219 | 65.5376 s | 12.6098 s | 4 |
+| ts-extras | 49 | 0.9258 s | 0.0704 s | 1 |
 
-The run used Python 3.11 on arm64. All three warm indexes reported zero successfully reparsed files. Raw source evidence, diagnostics, counters, pinned commits, and timings are saved in `results.json`. Timing depends on hardware, filesystem caching, and runtime versions.
+The final v0.2 run used Python 3.11 on arm64 and overlapped with local Ollama inference. All three warm indexes reported zero successfully reparsed files. Raw source evidence, diagnostics, counters, pinned commits, and timings are saved in `results.json`. Timing depends on shared CPU/memory load, hardware, filesystem caching, and runtime versions.
