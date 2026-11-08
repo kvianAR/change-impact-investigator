@@ -66,12 +66,12 @@ def create_server():
     @server.tool(name="summarize_impact")
     def summarize_impact_tool(
         repo: str,
-        provider: str,
+        provider: str | None = None,
         symbol: str | None = None,
         model: str | None = None,
         language: str = "python",
     ) -> dict:
-        """Generate an optional summary. ollama uses local AI. openai sends report data online."""
+        """Summarize with the active saved model or an explicit provider. Cloud providers send evidence online."""
         return summarize_impact(
             inspect_change_impact(Path(repo), symbol, language=language), provider, model
         )

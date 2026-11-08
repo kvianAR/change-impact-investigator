@@ -391,7 +391,9 @@ class ModelStore:
 
         return self._mutate(operation, expected_revision)
 
-    def connection(self, provider=None, model=None, key_override=None, base_url=None):
+    def connection(
+        self, provider=None, model=None, key_override=None, base_url=None, require_key=True
+    ):
         def resolve(state):
             profile = next(
                 (item for item in state["models"] if item["id"] == state["active_model_id"]), None
@@ -409,8 +411,13 @@ class ModelStore:
             )
             if not selected_model:
                 raise ValueError("Enter a model ID or activate a saved model")
-            key = validate_key(key_override) if key_override else self._key(state, selected)[0]
-            if PROVIDERS[selected]["requires_key"] and not key:
+            try:
+                key = validate_key(key_override) if key_override else self._key(state, selected)[0]
+            except CredentialError:
+                if require_key:
+                    raise
+                key = None
+            if require_key and PROVIDERS[selected]["requires_key"] and not key:
                 raise ValueError(
                     f"Save a {PROVIDERS[selected]['name']} key in Models or set {PROVIDERS[selected]['key_env']}"
                 )

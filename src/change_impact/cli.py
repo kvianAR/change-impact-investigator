@@ -34,7 +34,7 @@ def main() -> None:
     parser.add_argument("--repo", type=Path, default=Path.cwd())
     parser.add_argument("--symbol")
     parser.add_argument("--baseline-id")
-    parser.add_argument("--provider", choices=["ollama", "openai"])
+    parser.add_argument("--provider", choices=["ollama", "openai", "openrouter", "custom"])
     parser.add_argument("--model")
     parser.add_argument("--base", default="HEAD")
     parser.add_argument("--depth", type=int, default=8)
@@ -44,8 +44,6 @@ def main() -> None:
         parser.error("--symbol is required for this command")
     if args.command == "compare" and not args.baseline_id:
         parser.error("--baseline-id is required for comparison")
-    if args.command == "summarize" and not args.provider:
-        parser.error("--provider is required for an AI summary")
     try:
         if args.command == "index":
             result = index_repository(args.repo, args.language)
