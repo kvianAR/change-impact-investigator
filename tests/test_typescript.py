@@ -198,3 +198,30 @@ def test_express_middleware_dependency_and_warning_classification(tmp_path: Path
         .replace("'/orders'", "unknownPath")
     )
     assert compare_impact(tmp_path, baseline["baseline_id"])["symbol_removed"]
+
+
+def test_named_tests_keep_identity_after_unrelated_function_insertion(tmp_path: Path) -> None:
+    (tmp_path / "v.ts").write_text("export function validate(){return true;}\n")
+    test = tmp_path / "v.test.ts"
+    test.write_text("import {validate} from './v'; test('stable title',()=>validate());\n")
+    commit_sources(tmp_path)
+    baseline = create_impact_baseline(tmp_path, "v.ts:validate", "typescript")
+    test.write_text("function unrelated(){return true;}\n" + test.read_text())
+    changes = compare_impact(tmp_path, baseline["baseline_id"])["changes"]
+    assert changes["tests"] == {"added": [], "removed": []}
+    assert changes["callers"] == {"added": [], "removed": []}
+
+
+def test_runnable_typescript_example_exposes_route_and_all_related_tests() -> None:
+    root = Path(__file__).resolve().parents[1]
+    index = build_typescript_index(root)
+    query = "examples/typescript_shop/validators.ts:validateOrder"
+    routes = [
+        route
+        for route in discover_routes(index)
+        if route["symbol"].startswith("examples/typescript_shop/")
+    ]
+    assert routes[0]["path"] == "/orders/:quantity"
+    related = find_related_tests(index, query)
+    assert len(related) == 3
+    assert {test["confidence"] for test in related} == {"static", "candidate"}

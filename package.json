@@ -2,8 +2,14 @@
   "name": "change-impact-investigator-typescript",
   "private": true,
   "version": "0.2.0",
+  "scripts": {
+    "test": "node --experimental-strip-types --test examples/typescript_shop/orders.test.ts"
+  },
   "description": "Compiler runtime for the optional TypeScript analysis backend",
   "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.20.5",
+    "express": "^5.1.0",
     "typescript": "5.9.3"
   }
 }

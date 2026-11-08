@@ -131,10 +131,11 @@ function analyze(request) {
       if (!name && ts.isBinaryExpression(node.parent) && ts.isPropertyAccessExpression(node.parent.left)) name = node.parent.left.getText();
       if (ts.isConstructorDeclaration(node)) name = "constructor";
       const parentCall = ts.isCallExpression(node.parent) ? node.parent : null;
-      const countKey = `${relative(node.getSourceFile().fileName)}:${prefix}`;
+      const isTest = parentCall && testCall(parentCall);
+      const title = isTest ? string(parentCall.arguments[0]) || "<dynamic>" : "<callbacks>";
+      const countKey = `${relative(node.getSourceFile().fileName)}:${prefix}:${title}`;
       const ordinal = (counters.get(countKey) || 0) + 1;
       counters.set(countKey, ordinal);
-      const isTest = parentCall && testCall(parentCall);
       if (isTest) name = `test ${string(parentCall.arguments[0]) || "<dynamic>"}#${ordinal}`;
       name ||= `<callback>#${ordinal}`;
       next = prefix ? `${prefix}.${name}` : name;
@@ -249,6 +250,18 @@ function analyze(request) {
     }
     if (ts.isCallExpression(node) || ts.isNewExpression(node)) {
       const current = caller || `${relative(node.getSourceFile().fileName)}:<module>`;
+      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "fetch") {
+        let argument = node.arguments[0];
+        if (argument && ts.isNewExpression(argument) && argument.expression.getText() === "URL") argument = argument.arguments && argument.arguments[0];
+        const url = string(argument);
+        let method = "GET";
+        const settings = node.arguments[1];
+        if (settings && ts.isObjectLiteralExpression(settings)) {
+          const property = settings.properties.find(item => ts.isPropertyAssignment(item) && item.name.getText() === "method");
+          if (property) method = string(property.initializer) || "<dynamic>";
+        }
+        if (url !== null) httpCalls.push({ caller: current, method: method.toUpperCase(), path: url, ...reference(node) });
+      }
       const type = checker.getTypeAtLocation(node.expression);
       let target = resolve(node.expression, node);
       if (type.isUnion && type.isUnion() && type.types.filter(item => checker.getSignaturesOfType(item, ts.SignatureKind.Call).length).length > 1) {
