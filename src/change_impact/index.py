@@ -47,6 +47,8 @@ class Module:
 
 def _module_name(relative: Path) -> str:
     parts = list(relative.with_suffix("").parts)
+    if parts[0] == "src":
+        parts.pop(0)
     if parts[-1] == "__init__":
         parts.pop()
     return ".".join(parts)
@@ -57,10 +59,10 @@ def _source_files(root: Path) -> list[Path]:
     return sorted(p for p in root.rglob("*.py") if not excluded.intersection(p.relative_to(root).parts))
 
 
-def _import_target(module: str, node: ast.ImportFrom) -> str:
+def _import_target(module: str, node: ast.ImportFrom, is_package: bool = False) -> str:
     if not node.level:
         return node.module or ""
-    package = module.split(".")[:-1]
+    package = module.split(".") if is_package else module.split(".")[:-1]
     keep = max(0, len(package) - node.level + 1)
     return ".".join([*package[:keep], *([node.module] if node.module else [])])
 
@@ -82,7 +84,7 @@ def build_index(root: Path) -> dict[str, Module]:
                 for alias in node.names:
                     module.imports[alias.asname or alias.name.split(".")[0]] = alias.name
             elif isinstance(node, ast.ImportFrom):
-                base = _import_target(name, node)
+                base = _import_target(name, node, path.stem == "__init__")
                 for alias in node.names:
                     if alias.name != "*":
                         module.imports[alias.asname or alias.name] = f"{base}.{alias.name}".strip(".")
