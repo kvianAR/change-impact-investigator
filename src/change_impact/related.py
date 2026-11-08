@@ -38,7 +38,7 @@ def _join_path(*parts: str) -> str:
     return path + "/" if path != "/" and parts[-1].endswith("/") else path
 
 
-def discover_route_map(index: dict[str, Module]) -> tuple[list[dict], list[dict]]:
+def _discover_route_map(index: dict[str, Module]) -> tuple[list[dict], list[dict]]:
     objects: dict[str, dict] = {}
     mounts: list[dict] = []
     declarations: list[dict] = []
@@ -244,6 +244,16 @@ def discover_route_map(index: dict[str, Module]) -> tuple[list[dict], list[dict]
                 }
             )
     return routes, diagnostics
+
+
+def discover_route_map(index: dict[str, Module]) -> tuple[list[dict], list[dict]]:
+    memo = getattr(index, "_memo", None)
+    if memo is None:
+        return _discover_route_map(index)
+    if "routes" not in memo:
+        memo["routes"] = _discover_route_map(index)
+        index.stats["route_builds"] = index.stats.get("route_builds", 0) + 1
+    return memo["routes"]
 
 
 def discover_routes(index: dict[str, Module]) -> list[dict]:

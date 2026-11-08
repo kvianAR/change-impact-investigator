@@ -132,7 +132,7 @@ def _resolve(
     return _find_target(target, index, symbols)
 
 
-def relationships(index: dict[str, Module]) -> tuple[dict[str, Symbol], list[Edge], list[dict]]:
+def _relationships(index: dict[str, Module]) -> tuple[dict[str, Symbol], list[Edge], list[dict]]:
     symbols = {symbol.id: symbol for module in index.values() for symbol in module.symbols}
     edges: list[Edge] = []
     unresolved: list[dict] = []
@@ -192,6 +192,16 @@ def relationships(index: dict[str, Module]) -> tuple[dict[str, Symbol], list[Edg
     return symbols, edges, unresolved
 
 
+def relationships(index: dict[str, Module]) -> tuple[dict[str, Symbol], list[Edge], list[dict]]:
+    memo = getattr(index, "_memo", None)
+    if memo is None:
+        return _relationships(index)
+    if "relationships" not in memo:
+        memo["relationships"] = _relationships(index)
+        index.stats["graph_builds"] = index.stats.get("graph_builds", 0) + 1
+    return memo["relationships"]
+
+
 def select_symbol(symbols: dict[str, Symbol], query: str) -> Symbol:
     if query in symbols:
         return symbols[query]
@@ -249,4 +259,5 @@ def trace_callers(index: dict[str, Module], query: str, depth: int = 3) -> dict:
         "diagnostics": getattr(index, "diagnostics", []),
         "truncated": truncated,
         "depth": depth,
+        "index_stats": dict(getattr(index, "stats", {})),
     }

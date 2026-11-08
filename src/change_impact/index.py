@@ -80,6 +80,7 @@ class RepositoryIndex(dict[str, Module]):
         super().__init__()
         self.diagnostics: list[dict] = []
         self.stats = {"parsed_files": 0, "cache_hits": 0}
+        self._memo: dict = {}
 
 
 def _binding_hash(tree: ast.Module) -> str:
@@ -492,3 +493,19 @@ def build_index(root: Path, sources: dict[str, str] | None = None) -> Repository
         raise ValueError(f"Repository directory does not exist: {root}")
     with IndexCache(root, __file__) as cache:
         return _build_index(root, sources, cache)
+
+
+def index_repository(root: Path) -> dict:
+    from time import perf_counter
+
+    started = perf_counter()
+    index = build_index(root)
+    return {
+        "repository": str(root.resolve()),
+        "language": "python",
+        "modules": len(index),
+        "symbols": sum(len(module.symbols) for module in index.values()),
+        "stats": index.stats,
+        "diagnostics": index.diagnostics,
+        "seconds": round(perf_counter() - started, 4),
+    }

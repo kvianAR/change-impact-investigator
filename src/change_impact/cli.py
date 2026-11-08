@@ -9,7 +9,7 @@ from pathlib import Path
 from .ai import summarize_impact
 from .baseline import compare_impact, create_impact_baseline
 from .impact import inspect_change_impact
-from .index import build_index
+from .index import build_index, index_repository
 from .related import find_related_tests
 from .trace import trace_callers
 
@@ -27,6 +27,7 @@ def main() -> None:
             "baseline",
             "compare",
             "summarize",
+            "index",
         ],
     )
     parser.add_argument("--repo", type=Path, default=Path.cwd())
@@ -44,7 +45,9 @@ def main() -> None:
     if args.command == "summarize" and not args.provider:
         parser.error("--provider is required for an AI summary")
     try:
-        if args.command == "trace-callers":
+        if args.command == "index":
+            result = index_repository(args.repo)
+        elif args.command == "trace-callers":
             result = trace_callers(build_index(args.repo), args.symbol, args.depth)
         elif args.command == "related-tests":
             result = find_related_tests(build_index(args.repo), args.symbol, args.depth)

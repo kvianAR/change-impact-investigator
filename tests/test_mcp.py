@@ -32,6 +32,7 @@ def test_stdio_mcp_session_lists_and_calls_tools(tmp_path: Path) -> None:
                     "create_impact_baseline",
                     "compare_impact",
                     "summarize_impact",
+                    "index_repository",
                 }
                 response = await session.call_tool(
                     "trace_callers", {"repo": str(tmp_path), "symbol": "v:check"}

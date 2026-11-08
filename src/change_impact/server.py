@@ -16,11 +16,16 @@ def create_server():
     from .ai import summarize_impact
     from .baseline import compare_impact, create_impact_baseline
     from .impact import inspect_change_impact
-    from .index import build_index
+    from .index import build_index, index_repository
     from .related import find_related_tests
     from .trace import trace_callers
 
     server = FastMCP("Change Impact Investigator")
+
+    @server.tool(name="index_repository")
+    def index_repository_tool(repo: str) -> dict:
+        """Update the persistent source index and report parsed/reused file counts."""
+        return index_repository(Path(repo))
 
     @server.tool(name="trace_callers")
     def trace_callers_tool(repo: str, symbol: str, depth: int = 3) -> dict:

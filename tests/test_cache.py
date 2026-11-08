@@ -2,6 +2,7 @@ import sqlite3
 from pathlib import Path
 
 from change_impact.index import build_index
+from change_impact.related import discover_route_map
 from change_impact.trace import trace_callers
 
 
@@ -29,3 +30,14 @@ def test_corrupt_cached_json_falls_back_to_source(tmp_path: Path) -> None:
     index = build_index(tmp_path)
     assert index.stats["parsed_files"] == 1
     assert index["a"].symbols[0].name == "check"
+
+
+def test_queries_share_one_graph_per_source_snapshot(tmp_path: Path) -> None:
+    (tmp_path / "a.py").write_text("def check(): pass\ndef run(): check()\n")
+    index = build_index(tmp_path)
+    first = trace_callers(index, "a:check")
+    assert trace_callers(index, "a:check")["paths"] == first["paths"]
+    discover_route_map(index)
+    discover_route_map(index)
+    assert index.stats["graph_builds"] == 1
+    assert index.stats["route_builds"] == 1

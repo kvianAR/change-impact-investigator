@@ -175,6 +175,7 @@ def inspect_change_impact(
                 )
     return {
         "schema_version": 1,
+        "index_stats": dict(index.stats),
         "repository": str(root),
         "base": base,
         "base_commit": base_commit,
