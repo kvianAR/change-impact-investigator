@@ -62,10 +62,10 @@ def discover_routes(index: dict[str, Module]) -> list[dict]:
     return routes
 
 
-def find_related_tests(index: dict[str, Module], query: str) -> list[dict]:
+def find_related_tests(index: dict[str, Module], query: str, depth: int = 8) -> list[dict]:
     symbols, edges, _ = relationships(index)
     target = select_symbol(symbols, query)
-    trace = trace_callers(index, target.id, depth=8)
+    trace = trace_callers(index, target.id, depth=depth)
     reachable = {target.id}
     reachable.update(path[0]["caller"] for path in trace["paths"])
     impacted_routes = [route for route in discover_routes(index) if route["symbol"] in reachable]

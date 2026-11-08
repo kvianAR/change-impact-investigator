@@ -10,6 +10,7 @@ Python 3.11+ is required. Install locally with `pip install .` or with MCP suppo
 change-impact trace-callers --repo /path/to/repo --symbol package.validators:validate_order
 change-impact related-tests --repo /path/to/repo --symbol package.validators:validate_order
 change-impact inspect-change-impact --repo /path/to/repo
+change-impact inspect-change-impact --repo /path/to/repo --base main --depth 12
 ```
 
 For an MCP client, configure a stdio server with command `change-impact-mcp`. Its tools accept an absolute `repo` path. Source analysis reads files without importing or executing project code. Git impact compares tracked staged and unstaged changes with `HEAD` and includes untracked Python files.
@@ -50,3 +51,17 @@ Ollama uses `http://127.0.0.1:11434`. OpenAI uses the Responses API and incurs p
 ## Current limits
 
 Python only. FastAPI route support covers literal paths and basic `FastAPI`/`APIRouter` registration. Calls through runtime dispatch, dependency injection, complex inheritance, and plugin registries can remain unresolved. Test discovery supports direct calls and literal HTTP client calls. Treat results as evidence for investigation, not proof of runtime behavior.
+
+Call edges include both the call site and target definition. Import evidence records the alias, target, file, line, and lexical scope. Constructor-based method inference is explicitly labeled. Parse failures and duplicate module names appear in diagnostics. Reports include source hashes and traversal truncation flags.
+
+Changes outside functions conservatively mark the module's functions as potentially affected. Deleted functions use source from the selected Git revision and carry `evidence_state="base"`. Current connections carry `evidence_state="working_tree"`.
+
+## Demo
+
+Install `pip install '.[demo]'`, then run `python -m pytest examples/shop -q`.
+
+```sh
+change-impact inspect-change-impact --repo . --symbol examples.shop.validators:validate_order
+```
+
+The shared validator reaches `POST /orders` and `POST /orders/preview` through two service functions. Change its quantity limit in `examples/shop/validators.py`, rerun inspection, and run the related demo tests. Baselines let you compare graph changes before and after the edit.

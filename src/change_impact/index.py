@@ -1,8 +1,12 @@
-"""A small, deterministic Python source index."""
+"""Parse Python source without importing or executing repository code."""
 
 from __future__ import annotations
 
 import ast
+import hashlib
+import os
+import subprocess
+import tokenize
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -15,6 +19,7 @@ class Symbol:
     line: int
     end_line: int
     kind: str
+    start_line: int = 0
 
     @property
     def name(self) -> str:
@@ -33,6 +38,22 @@ class Call:
     caller: str | None
     expression: str
     kind: str
+    shadowed: tuple[str, ...] = ()
+
+
+@dataclass
+class Scope:
+    parent: str | None
+    kind: str
+    imports: dict[str, str] = field(default_factory=dict)
+    definitions: dict[str, str] = field(default_factory=dict)
+    bindings: set[str] = field(default_factory=set)
+    assignments: set[str] = field(default_factory=set)
+    globals: set[str] = field(default_factory=set)
+    nonlocals: set[str] = field(default_factory=set)
+    class_owner: str | None = None
+    receiver: str | None = None
+    constructors: dict[str, str | None] = field(default_factory=dict)
 
 
 @dataclass
@@ -43,11 +64,20 @@ class Module:
     imports: dict[str, str] = field(default_factory=dict)
     symbols: list[Symbol] = field(default_factory=list)
     calls: list[Call] = field(default_factory=list)
+    scopes: dict[str, Scope] = field(default_factory=dict)
+    import_evidence: list[dict] = field(default_factory=list)
+    content_hash: str = ""
 
 
-def _module_name(relative: Path) -> str:
+class RepositoryIndex(dict[str, Module]):
+    def __init__(self) -> None:
+        super().__init__()
+        self.diagnostics: list[dict] = []
+
+
+def _module_name(relative: Path, strip_src: bool = True) -> str:
     parts = list(relative.with_suffix("").parts)
-    if parts[0] == "src":
+    if strip_src and len(parts) > 1 and parts[0] == "src":
         parts.pop(0)
     if parts[-1] == "__init__":
         parts.pop()
@@ -55,11 +85,19 @@ def _module_name(relative: Path) -> str:
 
 
 def _source_files(root: Path) -> list[Path]:
-    excluded = {".git", ".venv", "venv", "node_modules", "build", "dist", "__pycache__"}
-    return sorted(p for p in root.rglob("*.py") if not excluded.intersection(p.relative_to(root).parts))
+    excluded = {".git", ".venv", "venv", "node_modules", "build", "dist", "__pycache__", ".impact-cache"}
+    proc = subprocess.run(["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", "*.py"], cwd=root, capture_output=True)
+    if proc.returncode == 0:
+        paths = [root / os.fsdecode(name) for name in proc.stdout.split(b"\0") if name]
+    else:
+        paths = []
+        for directory, directories, files in os.walk(root):
+            directories[:] = [name for name in directories if name not in excluded and not (Path(directory) / name).is_symlink()]
+            paths.extend(Path(directory) / name for name in files if name.endswith(".py"))
+    return sorted({path for path in paths if path.is_file() and not path.is_symlink() and not excluded.intersection(path.relative_to(root).parts)})
 
 
-def _import_target(module: str, node: ast.ImportFrom, is_package: bool = False) -> str:
+def _import_target(module: str, node: ast.ImportFrom, is_package: bool) -> str:
     if not node.level:
         return node.module or ""
     package = module.split(".") if is_package else module.split(".")[:-1]
@@ -67,62 +105,178 @@ def _import_target(module: str, node: ast.ImportFrom, is_package: bool = False) 
     return ".".join([*package[:keep], *([node.module] if node.module else [])])
 
 
-def build_index(root: Path) -> dict[str, Module]:
-    """Parse repository Python files without importing or executing them."""
+def _collect_scope(module: Module, body: list[ast.stmt], parent: str | None, kind: str, qualname: str, is_package: bool) -> Scope:
+    scope = Scope(parent, kind)
+
+    class Bindings(ast.NodeVisitor):
+        def visit_Name(self, node: ast.Name) -> None:
+            if isinstance(node.ctx, (ast.Store, ast.Del)):
+                scope.bindings.add(node.id)
+                scope.assignments.add(node.id)
+
+        def visit_Global(self, node: ast.Global) -> None:
+            scope.globals.update(node.names)
+
+        def visit_Nonlocal(self, node: ast.Nonlocal) -> None:
+            scope.nonlocals.update(node.names)
+
+        def visit_Assign(self, node: ast.Assign) -> None:
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    constructor = ast.unparse(node.value.func) if isinstance(node.value, ast.Call) and isinstance(node.value.func, (ast.Name, ast.Attribute)) else None
+                    scope.constructors[target.id] = constructor if target.id not in scope.constructors else None
+            self.generic_visit(node)
+
+        def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+            if isinstance(node.target, ast.Name):
+                constructor = ast.unparse(node.value.func) if isinstance(node.value, ast.Call) and isinstance(node.value.func, (ast.Name, ast.Attribute)) else None
+                scope.constructors[node.target.id] = constructor if node.target.id not in scope.constructors else None
+            self.generic_visit(node)
+
+        def visit_comprehension(self, node: ast.comprehension) -> None:
+            self.visit(node.iter)
+            for condition in node.ifs:
+                self.visit(condition)
+
+        def visit_FunctionDef(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+            scope.definitions[node.name] = f"{module.name}:{'.'.join(filter(None, [qualname, node.name]))}"
+
+        visit_AsyncFunctionDef = visit_FunctionDef
+        visit_ClassDef = visit_FunctionDef
+
+        def visit_Lambda(self, node: ast.Lambda) -> None:
+            pass
+
+        def visit_Import(self, node: ast.Import) -> None:
+            for alias in node.names:
+                local = alias.asname or alias.name.split(".")[0]
+                target = alias.name if alias.asname else alias.name.split(".")[0]
+                scope.imports[local] = target
+                module.import_evidence.append({"file": module.file, "line": node.lineno, "scope": qualname or None, "alias": local, "target": target})
+
+        def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+            base = _import_target(module.name, node, is_package)
+            for alias in node.names:
+                if alias.name == "*":
+                    continue
+                local = alias.asname or alias.name
+                target = f"{base}.{alias.name}".strip(".")
+                scope.imports[local] = target
+                module.import_evidence.append({"file": module.file, "line": node.lineno, "scope": qualname or None, "alias": local, "target": target})
+
+    visitor = Bindings()
+    for statement in body:
+        visitor.visit(statement)
+    return scope
+
+
+def build_index(root: Path, sources: dict[str, str] | None = None) -> RepositoryIndex:
     root = root.resolve()
-    modules: dict[str, Module] = {}
-    for path in _source_files(root):
+    if not root.is_dir():
+        raise ValueError(f"Repository directory does not exist: {root}")
+    index = RepositoryIndex()
+    duplicates: set[str] = set()
+    paths = _source_files(root) if sources is None else [root / filename for filename in sorted(sources)]
+    strip_src = not ((root / "src" / "__init__.py").is_file() if sources is None else "src/__init__.py" in sources)
+    for path in paths:
         relative = path.relative_to(root)
-        name = _module_name(relative)
-        try:
-            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(relative))
-        except (SyntaxError, UnicodeError):
+        name = _module_name(relative, strip_src)
+        if name in index or name in duplicates:
+            previous = index.pop(name, None)
+            index.diagnostics.append({"file": relative.as_posix(), "line": None, "reason": "duplicate_module_name", "other_file": previous.file if previous else None})
+            duplicates.add(name)
             continue
-        module = Module(name=name, file=relative.as_posix(), tree=tree)
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Import):
-                for alias in node.names:
-                    module.imports[alias.asname or alias.name.split(".")[0]] = alias.name
-            elif isinstance(node, ast.ImportFrom):
-                base = _import_target(name, node, path.stem == "__init__")
-                for alias in node.names:
-                    if alias.name != "*":
-                        module.imports[alias.asname or alias.name] = f"{base}.{alias.name}".strip(".")
+        try:
+            if sources is None:
+                with tokenize.open(path) as source:
+                    text = source.read()
+            else:
+                text = sources[relative.as_posix()]
+            tree = ast.parse(text, filename=str(relative))
+        except (SyntaxError, UnicodeError, OSError) as exc:
+            index.diagnostics.append({"file": relative.as_posix(), "line": getattr(exc, "lineno", None), "reason": type(exc).__name__})
+            continue
+        module = Module(name, relative.as_posix(), tree)
+        module.content_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        is_package = path.stem == "__init__"
+        module.scopes[""] = _collect_scope(module, tree.body, None, "module", "", is_package)
+        module.imports = module.scopes[""].imports
 
         class Visitor(ast.NodeVisitor):
             def __init__(self) -> None:
-                self.scope: list[str] = []
-                self.class_depth = 0
+                self.current = ""
+                self.comprehension_names: set[str] = set()
 
             def visit_ClassDef(self, node: ast.ClassDef) -> None:
-                qualname = ".".join([*self.scope, node.name])
-                module.symbols.append(Symbol(name, qualname, module.file, node.lineno, node.end_lineno or node.lineno, "class"))
-                self.scope.append(node.name)
-                self.class_depth += 1
-                self.generic_visit(node)
-                self.class_depth -= 1
-                self.scope.pop()
+                for expression in [*node.decorator_list, *node.bases, *(keyword.value for keyword in node.keywords)]:
+                    self.visit(expression)
+                self._enter(node, "class")
 
             def visit_FunctionDef(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
-                self._function(node)
+                for expression in [*node.decorator_list, *node.args.defaults, *(value for value in node.args.kw_defaults if value)]:
+                    self.visit(expression)
+                self._enter(node, "function")
 
-            def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
-                self._function(node)
+            visit_AsyncFunctionDef = visit_FunctionDef
 
-            def _function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
-                qualname = ".".join([*self.scope, node.name])
-                kind = "method" if self.class_depth and len(self.scope) == self.class_depth else "function"
-                module.symbols.append(Symbol(name, qualname, module.file, node.lineno, node.end_lineno or node.lineno, kind))
-                self.scope.append(node.name)
-                self.generic_visit(node)
-                self.scope.pop()
+            def _enter(self, node: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef, kind: str) -> None:
+                previous = self.current
+                enclosing = module.scopes[previous]
+                qualname = ".".join(filter(None, [previous, node.name]))
+                symbol_kind = "method" if kind == "function" and enclosing.kind == "class" else kind
+                start = min([node.lineno, *(decorator.lineno for decorator in node.decorator_list)])
+                module.symbols.append(Symbol(name, qualname, module.file, node.lineno, node.end_lineno or node.lineno, symbol_kind, start))
+                parent = enclosing.parent if symbol_kind == "method" else previous
+                scope = _collect_scope(module, node.body, parent, kind, qualname, is_package)
+                if kind == "function":
+                    arguments = [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
+                    scope.bindings.update(argument.arg for argument in arguments)
+                    scope.bindings.update(argument.arg for argument in (node.args.vararg, node.args.kwarg) if argument)
+                    is_static = any(isinstance(decorator, ast.Name) and decorator.id == "staticmethod" for decorator in node.decorator_list)
+                    if symbol_kind == "method" and arguments and not is_static:
+                        scope.class_owner, scope.receiver = previous, arguments[0].arg
+                module.scopes[qualname] = scope
+                self.current = qualname
+                for statement in node.body:
+                    self.visit(statement)
+                self.current = previous
+
+            def visit_Lambda(self, node: ast.Lambda) -> None:
+                for default in [*node.args.defaults, *(value for value in node.args.kw_defaults if value)]:
+                    self.visit(default)
+                previous = self.current
+                qualname = ".".join(filter(None, [previous, f"<lambda>@{node.lineno},{node.col_offset}"]))
+                module.symbols.append(Symbol(name, qualname, module.file, node.lineno, node.end_lineno or node.lineno, "lambda"))
+                scope = Scope(previous, "function")
+                scope.bindings.update(arg.arg for arg in [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs])
+                scope.bindings.update(arg.arg for arg in (node.args.vararg, node.args.kwarg) if arg)
+                module.scopes[qualname] = scope
+                self.current = qualname
+                self.visit(node.body)
+                self.current = previous
+
+            def visit_ListComp(self, node: ast.ListComp | ast.SetComp | ast.DictComp | ast.GeneratorExp) -> None:
+                previous = self.comprehension_names.copy()
+                for generator in node.generators:
+                    self.visit(generator.iter)
+                    self.comprehension_names.update(part.id for part in ast.walk(generator.target) if isinstance(part, ast.Name))
+                    for condition in generator.ifs:
+                        self.visit(condition)
+                expressions = [node.key, node.value] if isinstance(node, ast.DictComp) else [node.elt]
+                for expression in expressions:
+                    self.visit(expression)
+                self.comprehension_names = previous
+
+            visit_SetComp = visit_ListComp
+            visit_DictComp = visit_ListComp
+            visit_GeneratorExp = visit_ListComp
 
             def visit_Call(self, node: ast.Call) -> None:
                 expression = ast.unparse(node.func)
-                kind = "dynamic" if isinstance(node.func, ast.Subscript) or expression.startswith(("getattr(", "globals(", "locals(")) else "direct"
-                module.calls.append(Call(name, module.file, node.lineno, ".".join(self.scope) or None, expression, kind))
+                dynamic = isinstance(node.func, (ast.Subscript, ast.Call)) or any(isinstance(part, ast.Call) for part in ast.walk(node.func))
+                module.calls.append(Call(name, module.file, node.lineno, self.current or None, expression, "dynamic" if dynamic else "direct", tuple(sorted(self.comprehension_names))))
                 self.generic_visit(node)
 
         Visitor().visit(tree)
-        modules[name] = module
-    return modules
+        index[name] = module
+    return index

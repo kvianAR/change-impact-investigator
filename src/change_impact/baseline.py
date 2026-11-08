@@ -9,6 +9,7 @@ from pathlib import Path
 from .impact import inspect_change_impact
 from .index import build_index
 from .trace import relationships
+from .git import repository_root
 
 
 def _cache(root: Path) -> Path:
@@ -16,7 +17,7 @@ def _cache(root: Path) -> Path:
 
 
 def create_impact_baseline(root: Path, symbol: str) -> dict:
-    root = root.resolve()
+    root = repository_root(root)
     report = inspect_change_impact(root, symbol)
     baseline_id = uuid.uuid4().hex
     cache = _cache(root)
@@ -34,12 +35,13 @@ def _connections(report: dict) -> dict[str, dict[tuple, dict]]:
         "callers": {(edge["caller"], edge["target"], edge["expression"]): edge for path in impact["caller_paths"] for edge in path},
         "routes": {(route["method"], route["path"], route["symbol"]): route for route in impact["affected_routes"]},
         "tests": {(item["test"]["module"], item["test"]["qualname"]): item for item in impact["related_tests"]},
+        "imports": {(item["file"], item["scope"] or "", item["alias"], item["target"]): item for item in impact.get("imports", [])},
         "dynamic_calls": {(item["file"], item["caller"] or "", item["expression"]): item for item in report["unresolved_dynamic_calls"]},
     }
 
 
 def compare_impact(root: Path, baseline_id: str) -> dict:
-    root = root.resolve()
+    root = repository_root(root)
     if not (len(baseline_id) == 32 and all(c in "0123456789abcdef" for c in baseline_id)):
         raise ValueError("Invalid baseline ID")
     path = _cache(root) / f"{baseline_id}.json"

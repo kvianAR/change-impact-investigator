@@ -25,3 +25,19 @@ The first three steps were pushed individually. Subsequent work follows one comm
 - Benchmarks against labeled repositories, then TypeScript support.
 
 Static analysis cannot prove all runtime behavior. Reports must separate resolved links from candidates and unresolved dynamic calls.
+
+## Round 3 — completed
+
+1. Resolve lexical scopes, local imports, re-exports, methods, and constructor-created instances.
+2. Inspect current and historical Git source for deleted symbols and module-level edits.
+3. Report parse diagnostics, source hashes, traversal limits, and import evidence.
+4. Add an executable FastAPI demo, MCP stdio integration test, and GitHub CI.
+5. Run thirty regression and runtime demo tests before pushing the round.
+
+## Round 4 — final Python release scope
+
+1. Harden FastAPI router registration and test matching.
+2. Link pytest fixtures to impacted tests.
+3. Bound AI summary context and improve provider error handling.
+4. Package the usage guide, repeatable demo, and release checks.
+5. Run full round-end verification and publish the completed Python release.

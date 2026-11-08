@@ -25,3 +25,9 @@ def test_src_layout_and_package_relative_import(tmp_path: Path) -> None:
     index = build_index(tmp_path)
     assert "shop" in index and "shop.validators" in index
     assert index["shop"].imports["check"] == "shop.validators.check"
+
+
+def test_parse_failure_is_reported(tmp_path: Path) -> None:
+    (tmp_path / "broken.py").write_text("def broken(\n")
+    index = build_index(tmp_path)
+    assert index.diagnostics == [{"file": "broken.py", "line": 1, "reason": "SyntaxError"}]

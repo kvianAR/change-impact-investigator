@@ -26,14 +26,14 @@ def create_server():
         return trace_callers(build_index(Path(repo)), symbol, depth)
 
     @server.tool(name="find_related_tests")
-    def find_related_tests_tool(repo: str, symbol: str) -> list[dict]:
+    def find_related_tests_tool(repo: str, symbol: str, depth: int = 8) -> list[dict]:
         """Find pytest tests linked to a symbol or an affected FastAPI route."""
-        return find_related_tests(build_index(Path(repo)), symbol)
+        return find_related_tests(build_index(Path(repo)), symbol, depth)
 
     @server.tool(name="inspect_change_impact")
-    def inspect_change_impact_tool(repo: str, symbol: str | None = None) -> dict:
+    def inspect_change_impact_tool(repo: str, symbol: str | None = None, base: str = "HEAD", depth: int = 8) -> dict:
         """Inspect uncommitted Python changes against HEAD and report affected paths."""
-        return inspect_change_impact(Path(repo), symbol)
+        return inspect_change_impact(Path(repo), symbol, base, depth)
 
     @server.tool(name="create_impact_baseline")
     def create_baseline_tool(repo: str, symbol: str) -> dict:

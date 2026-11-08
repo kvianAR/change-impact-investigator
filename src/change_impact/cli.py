@@ -22,6 +22,8 @@ def main() -> None:
     parser.add_argument("--baseline-id")
     parser.add_argument("--provider", choices=["ollama", "openai"])
     parser.add_argument("--model")
+    parser.add_argument("--base", default="HEAD")
+    parser.add_argument("--depth", type=int, default=8)
     args = parser.parse_args()
     if args.command in {"trace-callers", "related-tests", "baseline"} and not args.symbol:
         parser.error("--symbol is required for this command")
@@ -29,16 +31,19 @@ def main() -> None:
         parser.error("--baseline-id is required for comparison")
     if args.command == "summarize" and not args.provider:
         parser.error("--provider is required for an AI summary")
-    if args.command == "trace-callers":
-        result = trace_callers(build_index(args.repo), args.symbol)
-    elif args.command == "related-tests":
-        result = find_related_tests(build_index(args.repo), args.symbol)
-    elif args.command == "baseline":
-        result = create_impact_baseline(args.repo, args.symbol)
-    elif args.command == "compare":
-        result = compare_impact(args.repo, args.baseline_id)
-    elif args.command == "summarize":
-        result = summarize_impact(inspect_change_impact(args.repo, args.symbol), args.provider, args.model)
-    else:
-        result = inspect_change_impact(args.repo, args.symbol)
+    try:
+        if args.command == "trace-callers":
+            result = trace_callers(build_index(args.repo), args.symbol, args.depth)
+        elif args.command == "related-tests":
+            result = find_related_tests(build_index(args.repo), args.symbol, args.depth)
+        elif args.command == "baseline":
+            result = create_impact_baseline(args.repo, args.symbol)
+        elif args.command == "compare":
+            result = compare_impact(args.repo, args.baseline_id)
+        elif args.command == "summarize":
+            result = summarize_impact(inspect_change_impact(args.repo, args.symbol, args.base, args.depth), args.provider, args.model)
+        else:
+            result = inspect_change_impact(args.repo, args.symbol, args.base, args.depth)
+    except (ValueError, OSError, RuntimeError) as exc:
+        parser.exit(2, f"error: {exc}\n")
     print(json.dumps(result, indent=2))
