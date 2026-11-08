@@ -17,8 +17,10 @@ HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 
 def changed_lines(root: Path) -> dict[str, set[int]]:
     """Return added/modified lines in tracked files plus every line of untracked Python files."""
+    has_head = subprocess.run(["git", "rev-parse", "--verify", "HEAD"], cwd=root, capture_output=True).returncode == 0
+    diff_base = ["HEAD"] if has_head else ["--cached"]
     proc = subprocess.run(
-        ["git", "diff", "HEAD", "--unified=0", "--no-ext-diff", "--no-color", "--", "*.py"],
+        ["git", "diff", *diff_base, "--unified=0", "--no-ext-diff", "--no-color", "--", "*.py"],
         cwd=root, capture_output=True, text=True, check=True,
     )
     changed: dict[str, set[int]] = {}

@@ -1,6 +1,6 @@
 # Project roadmap
 
-## Round 1: working Python foundation
+## Round 1 — completed
 
 1. Repository and package setup.
 2. Python symbol and import index with source locations.
@@ -8,7 +8,15 @@
 4. FastAPI route and related pytest discovery.
 5. Git diff impact report and MCP tools.
 
-Each step is a separate commit pushed to GitHub.
+The first three steps were pushed individually. Subsequent work follows one commit and push per round.
+
+## Round 2 — completed
+
+1. Save symbol investigation baselines.
+2. Compare callers, routes, tests, and dynamic calls with source evidence.
+3. Add local Ollama and online OpenAI summary options.
+4. Expose the new capabilities through CLI and MCP.
+5. Run round-end regression and provider integration checks.
 
 ## Future rounds
 

@@ -15,6 +15,8 @@ def create_server():
     from .index import build_index
     from .related import find_related_tests
     from .trace import trace_callers
+    from .baseline import compare_impact, create_impact_baseline
+    from .ai import summarize_impact
 
     server = FastMCP("Change Impact Investigator")
 
@@ -32,6 +34,21 @@ def create_server():
     def inspect_change_impact_tool(repo: str, symbol: str | None = None) -> dict:
         """Inspect uncommitted Python changes against HEAD and report affected paths."""
         return inspect_change_impact(Path(repo), symbol)
+
+    @server.tool(name="create_impact_baseline")
+    def create_baseline_tool(repo: str, symbol: str) -> dict:
+        """Save current evidence before editing a symbol."""
+        return create_impact_baseline(Path(repo), symbol)
+
+    @server.tool(name="compare_impact")
+    def compare_impact_tool(repo: str, baseline_id: str) -> dict:
+        """Compare current connections against a saved baseline."""
+        return compare_impact(Path(repo), baseline_id)
+
+    @server.tool(name="summarize_impact")
+    def summarize_impact_tool(repo: str, provider: str, symbol: str | None = None, model: str | None = None) -> dict:
+        """Generate an optional summary. ollama uses local AI. openai sends report data online."""
+        return summarize_impact(inspect_change_impact(Path(repo), symbol), provider, model)
 
     return server
 
