@@ -15,6 +15,22 @@ import time
 from pathlib import Path
 
 
+def prepare_cache_directory(root: Path) -> Path:
+    directory = root.resolve() / ".impact-cache"
+    if directory.is_symlink():
+        raise ValueError("Source cache must remain inside the repository")
+    directory.mkdir(mode=0o700, exist_ok=True)
+    directory.chmod(0o700)
+    ignore = directory / ".gitignore"
+    if not ignore.exists():
+        try:
+            with ignore.open("x", encoding="utf-8") as output:
+                output.write("*\n")
+        except FileExistsError:
+            pass
+    return directory
+
+
 def _encode(value):
     if value is Ellipsis:
         return {"$literal": "ellipsis"}
@@ -103,7 +119,7 @@ class IndexCache:
             self.status = "unsafe_path_disabled"
             return self
         try:
-            directory.mkdir(mode=0o700, exist_ok=True)
+            prepare_cache_directory(self.root)
             self.connection = sqlite3.connect(database, timeout=1)
             self.connection.execute("PRAGMA journal_mode=WAL")
             self.connection.execute(

@@ -6,6 +6,7 @@ import json
 import uuid
 from pathlib import Path
 
+from .cache import prepare_cache_directory
 from .git import repository_root
 from .impact import inspect_change_impact
 from .index import failed_source_files
@@ -24,8 +25,7 @@ def create_impact_baseline(root: Path, symbol: str, language: str = "python") ->
     root = repository_root(root)
     report = inspect_change_impact(root, symbol, language=language)
     baseline_id = uuid.uuid4().hex
-    cache = _cache(root)
-    cache.mkdir(exist_ok=True)
+    cache = prepare_cache_directory(root)
     path = cache / f"{baseline_id}.json"
     with path.open("x", encoding="utf-8") as output:
         json.dump(report, output, indent=2)

@@ -1,5 +1,6 @@
 import ast
 import sqlite3
+import subprocess
 from pathlib import Path
 
 from change_impact.index import build_index
@@ -55,3 +56,15 @@ def test_all_python_constant_types_survive_persistent_cache(tmp_path: Path) -> N
     assert ast.dump(reused["a"].tree, include_attributes=True) == ast.dump(
         initial["a"].tree, include_attributes=True
     )
+
+
+def test_source_cache_is_ignored_without_modifying_repository_gitignore(tmp_path: Path) -> None:
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
+    (tmp_path / "a.py").write_text("def check(): pass\n")
+    build_index(tmp_path)
+    status = subprocess.run(
+        ["git", "status", "--porcelain"], cwd=tmp_path, capture_output=True, text=True, check=True
+    ).stdout
+    assert ".impact-cache" not in status
+    assert not (tmp_path / ".gitignore").exists()
+    assert (tmp_path / ".impact-cache/.gitignore").read_text() == "*\n"
