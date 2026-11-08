@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .git import repository_root
 from .impact import inspect_change_impact
+from .index import failed_source_files
 from .repository import load_index
 from .trace import relationships
 
@@ -74,8 +75,7 @@ def compare_impact(root: Path, baseline_id: str) -> dict:
     index = load_index(root, language)
     symbols, _, _ = relationships(index)
     removed = symbol_id not in symbols
-    failed_files = {item["file"] for item in index.diagnostics}
-    failed_files.update(item["other_file"] for item in index.diagnostics if item.get("other_file"))
+    failed_files = failed_source_files(index)
     if removed and symbol["file"] in failed_files:
         raise ValueError(f"Cannot compare symbol because {symbol['file']} could not be indexed")
     current = inspect_change_impact(root, None if removed else symbol_id, language=language)

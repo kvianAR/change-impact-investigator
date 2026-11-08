@@ -79,7 +79,8 @@ def _valid_inputs(payload: dict, own: set[str]) -> bool:
                 text = Path(filename).read_bytes().decode("utf-8-sig")
                 if hashlib.sha256(text.encode()).hexdigest() != expected:
                     return False
-        return not any(Path(filename).exists() for filename in payload.get("missing_inputs", []))
+        missing = payload.get("missing_inputs", []) + payload.get("missing_directories", [])
+        return not any(Path(filename).exists() for filename in missing)
     except (OSError, UnicodeError, KeyError, TypeError, ValueError):
         return False
 

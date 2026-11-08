@@ -71,6 +71,17 @@ def resolve_method(
     after: str | None = None,
 ) -> str | None:
     direct = f"{class_id}.{member}"
+    module_name, owner = class_id.split(":", 1)
+    if (
+        after is None
+        and module_name in index
+        and any(
+            scope.class_owner == owner
+            and f"{scope.receiver}.{member}" in scope.attribute_assignments
+            for scope in index[module_name].scopes.values()
+        )
+    ):
+        return None
     if after is None and direct in symbols:
         return direct
     lineage = class_mro(class_id, index, symbols)

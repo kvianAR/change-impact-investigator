@@ -60,26 +60,32 @@ def _runtime_binding(module: Module, scope_name: str, name: str) -> bool:
     return False
 
 
-def _instance_type(module: Module, scope_name: str, name: str) -> str | None:
+def _instance_info(module: Module, scope_name: str, name: str) -> tuple[str | None, str]:
     current: str | None = scope_name
     while current is not None:
         scope = module.scopes[current]
+        if name in scope.assignments:
+            constructor = scope.constructors.get(name)
+            if not constructor:
+                return None, "static"
+            root, _, rest = constructor.partition(".")
+            target = _lookup_name(module, current, root)
+            return (
+                ".".join(filter(None, [target, rest])) if target else None
+            ), "constructor_inference"
         if name in scope.types:
             root, _, rest = scope.types[name].partition(".")
             reference = _lookup_name(module, current, root)
             if reference:
-                return ".".join(filter(None, [reference, rest]))
-        if name in scope.assignments:
-            constructor = scope.constructors.get(name)
-            if not constructor:
-                return None
-            root, _, rest = constructor.partition(".")
-            target = _lookup_name(module, current, root)
-            return ".".join(filter(None, [target, rest])) if target else None
+                return ".".join(filter(None, [reference, rest])), "annotation_inference"
         if name in scope.bindings:
-            return None
+            return None, "static"
         current = scope.parent
-    return None
+    return None, "static"
+
+
+def _instance_type(module: Module, scope_name: str, name: str) -> str | None:
+    return _instance_info(module, scope_name, name)[0]
 
 
 def _find_target(
@@ -157,18 +163,9 @@ def _relationships(index: dict[str, Module]) -> tuple[dict[str, Symbol], list[Ed
             if target:
                 definition = symbols[target]
                 root = call.expression.split(".", 1)[0]
-                resolution = (
-                    "constructor_inference"
-                    if _instance_type(module, call.caller or "", root)
-                    else "static"
-                )
+                resolution = _instance_info(module, call.caller or "", root)[1]
                 if call.expression.startswith("super("):
                     resolution = "super_static"
-                elif (
-                    any(root in scope.types for scope in module.scopes.values())
-                    and resolution == "constructor_inference"
-                ):
-                    resolution = "annotation_inference"
                 edges.append(
                     Edge(
                         f"{module.name}:{call.caller or '<module>'}",

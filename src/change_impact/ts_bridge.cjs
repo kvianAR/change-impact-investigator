@@ -15,6 +15,7 @@ function analyze(request) {
   const ts = require(compiler);
   const readInputs = new Map();
   const missing = new Set();
+  const missingDirectories = new Set();
   const files = request.files.map(file => path.resolve(root, file));
   const ownFiles = new Set(files);
   const overrides = request.sources;
@@ -55,6 +56,12 @@ function analyze(request) {
   const host = ts.createCompilerHost(options);
   host.readFile = readFile;
   host.fileExists = fileExists;
+  const originalDirectoryExists = host.directoryExists;
+  host.directoryExists = directory => {
+    const exists = originalDirectoryExists(directory);
+    if (!exists) missingDirectories.add(path.resolve(directory));
+    return exists;
+  };
   if (overrides) {
     const directories = new Set();
     for (const file of files) {
@@ -88,6 +95,9 @@ function analyze(request) {
   const objectDeclarations = new Map();
   const mounts = [];
   const declarations = [];
+  const routeWarnings = [];
+  const invalidObjects = new Set();
+  const returnedObjects = new Set();
   const httpCalls = [];
   const string = node => node && (ts.isStringLiteralLike(node) ? node.text : null);
   const line = node => node.getSourceFile().getLineAndCharacterOfPosition(node.getStart()).line + 1;
@@ -118,6 +128,7 @@ function analyze(request) {
       let name = node.name && node.name.getText();
       if (!name && ts.isVariableDeclaration(node.parent)) name = node.parent.name.getText();
       if (!name && ts.isPropertyAssignment(node.parent)) name = node.parent.name.getText();
+      if (!name && ts.isBinaryExpression(node.parent) && ts.isPropertyAccessExpression(node.parent.left)) name = node.parent.left.getText();
       if (ts.isConstructorDeclaration(node)) name = "constructor";
       const parentCall = ts.isCallExpression(node.parent) ? node.parent : null;
       const countKey = `${relative(node.getSourceFile().fileName)}:${prefix}`;
@@ -164,7 +175,10 @@ function analyze(request) {
       if (resolved) return resolved;
     }
     const symbol = unalias(checker.getSymbolAtLocation(ts.isPropertyAccessExpression(expression) ? expression.name : expression));
-    return symbol && symbol.declarations && symbol.declarations.map(declarationId).find(Boolean) || null;
+    const declared = symbol && symbol.declarations && symbol.declarations.map(declarationId).find(Boolean);
+    if (declared) return declared;
+    const signatures = checker.getSignaturesOfType(checker.getTypeAtLocation(expression), ts.SignatureKind.Call);
+    return signatures.length === 1 ? declarationId(signatures[0].declaration) : null;
   }
   function addEdge(caller, target, node, resolution = "typescript_checker") {
     const definition = symbols.get(target);
@@ -173,6 +187,12 @@ function analyze(request) {
   function importBindings(source) {
     const result = new Map();
     for (const statement of source.statements) {
+      if (ts.isVariableStatement(statement)) for (const declaration of statement.declarationList.declarations) {
+        if (!declaration.initializer || !ts.isCallExpression(declaration.initializer) || declaration.initializer.expression.getText() !== "require" || !string(declaration.initializer.arguments[0])) continue;
+        const packageName = string(declaration.initializer.arguments[0]);
+        if (ts.isIdentifier(declaration.name)) result.set(declaration.name.text, packageName);
+        else if (ts.isObjectBindingPattern(declaration.name)) for (const element of declaration.name.elements) if (ts.isIdentifier(element.name)) result.set(element.name.text, `${packageName}.${(element.propertyName || element.name).getText()}`);
+      }
       if (!ts.isImportDeclaration(statement) || !statement.importClause) continue;
       const specifier = string(statement.moduleSpecifier);
       const clause = statement.importClause;
@@ -219,6 +239,14 @@ function analyze(request) {
   const verbs = new Set(["get", "post", "put", "patch", "delete", "head", "options", "all"]);
   function visit(node, caller = null) {
     if (nodeIds.has(node)) caller = nodeIds.get(node);
+    if (ts.isReturnStatement(node) && node.expression) {
+      const returned = objectId(node.expression);
+      if (returned && objects.get(returned).caller === caller) returnedObjects.add(returned);
+    }
+    if (ts.isBinaryExpression(node) && node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment) {
+      const modified = objectId(node.left);
+      if (modified) invalidObjects.add(modified);
+    }
     if (ts.isCallExpression(node) || ts.isNewExpression(node)) {
       const current = caller || `${relative(node.getSourceFile().fileName)}:<module>`;
       const type = checker.getTypeAtLocation(node.expression);
@@ -230,25 +258,42 @@ function analyze(request) {
       else {
         const symbol = unalias(checker.getSymbolAtLocation(ts.isPropertyAccessExpression(node.expression) ? node.expression.name : node.expression));
         const external = symbol && symbol.declarations && symbol.declarations.some(item => !ownFiles.has(path.resolve(item.getSourceFile().fileName)));
-        if (!external && !["test", "it", "describe", "expect", "require"].includes(rootCallName(node.expression))) unresolved.push({ ...reference(node), caller: current.split(":").slice(1).join(":"), expression: node.expression.getText(), reason: "unresolved_typescript_dispatch" });
+        const registration = ts.isPropertyAccessExpression(node.expression) && objectId(node.expression.expression) && (verbs.has(node.expression.name.text.toLowerCase()) || ["use", "route"].includes(node.expression.name.text));
+        if (!external && !registration && !["test", "it", "describe", "expect", "require"].includes(rootCallName(node.expression))) unresolved.push({ ...reference(node), caller: current.split(":").slice(1).join(":"), expression: node.expression.getText(), reason: "unresolved_typescript_dispatch" });
       }
       if (ts.isPropertyAccessExpression(node.expression)) {
         const method = node.expression.name.text.toLowerCase();
-        const owner = objectId(node.expression.expression);
+        let owner = objectId(node.expression.expression);
+        let pathArgument = node.arguments[0];
+        let handlerStart = 1;
+        const receiver = node.expression.expression;
+        if (!owner && ts.isCallExpression(receiver) && ts.isPropertyAccessExpression(receiver.expression) && receiver.expression.name.text === "route") {
+          owner = objectId(receiver.expression.expression);
+          pathArgument = receiver.arguments[0];
+          handlerStart = 0;
+        }
         if (verbs.has(method) && string(node.arguments[0]) !== null) httpCalls.push({ caller: current, method: method.toUpperCase(), path: string(node.arguments[0]), ...reference(node) });
         if (owner && verbs.has(method)) {
-          const routePath = string(node.arguments[0]);
+          const routePath = string(pathArgument);
           if (routePath === null) diagnostics.push({ file: node.getSourceFile(), start: node.getStart(), messageText: "Dynamic Express route path", code: 0 });
-          else for (const argument of node.arguments.slice(1)) {
+          else for (const argument of node.arguments.slice(handlerStart)) {
             const handler = nodeIds.get(argument) || resolve(argument);
             if (handler) declarations.push({ owner, method: method === "all" ? "ANY" : method.toUpperCase(), path: routePath, symbol: handler, ...reference(node) });
           }
         } else if (owner && method === "use") {
           const prefix = string(node.arguments[0]);
+          const first = node.arguments[0];
+          const firstType = first && checker.getTypeAtLocation(first);
+          const ambiguousPrefix = prefix === null && first && !objectId(first) && !resolve(first) && !nodeIds.has(first) && !checker.getSignaturesOfType(firstType, ts.SignatureKind.Call).length;
+          if (ambiguousPrefix) {
+            routeWarnings.push({ ...reference(node), reason: "dynamic_express_mount_prefix", kind: "route" });
+            ts.forEachChild(node, child => visit(child, caller));
+            return;
+          }
           const argumentsList = prefix === null ? node.arguments : node.arguments.slice(1);
           for (const argument of argumentsList) {
             const child = objectId(argument);
-            if (child) mounts.push({ parent: owner, child, prefix: prefix || "", ...reference(node) });
+            if (child) mounts.push({ parent: owner, child, prefix: prefix || "", middleware: argumentsList.filter(item => !objectId(item)).map(item => ({ target: nodeIds.get(item) || resolve(item), ...reference(node) })).filter(item => item.target), ...reference(node) });
           }
         }
       }
@@ -261,23 +306,38 @@ function analyze(request) {
   const routes = [];
   const reached = new Set();
   const join = (prefix, route) => `${prefix.replace(/\/$/, "")}/${route.replace(/^\//, "")}`;
-  function routeTree(owner, prefix, evidence, seen, app) {
+  function routeTree(owner, prefix, evidence, seen, app, middleware = []) {
     reached.add(owner);
-    for (const declaration of declarations) if (declaration.owner === owner) routes.push({ ...declaration, path: join(prefix, declaration.path), app, framework: "express", mount_evidence: evidence });
+    for (const declaration of declarations) if (declaration.owner === owner) {
+      routes.push({ ...declaration, path: join(prefix, declaration.path), app, factory: objects.get(app).caller, framework: "express", mount_evidence: evidence });
+      for (const item of middleware) {
+        const target = symbols.get(item.target);
+        edges.push({ caller: declaration.symbol, target: item.target, file: item.file, line: item.line, expression: "<Express middleware>", target_file: target.file, target_line: target.line, resolution: "express_middleware_dependency" });
+      }
+    }
     for (const mount of mounts) if (mount.parent === owner) {
-      if (seen.has(mount.child) || seen.size >= 32) continue;
-      routeTree(mount.child, join(prefix, mount.prefix), [...evidence, { file: mount.file, line: mount.line }], new Set([...seen, mount.child]), app);
+      if (seen.has(mount.child) || seen.size >= 32 || invalidObjects.has(mount.child)) {
+        routeWarnings.push({ file: mount.file, line: mount.line, reason: "express_mount_cycle_depth_or_reassignment", kind: "route" });
+        continue;
+      }
+      routeTree(mount.child, join(prefix, mount.prefix), [...evidence, { file: mount.file, line: mount.line }], new Set([...seen, mount.child]), app, [...middleware, ...mount.middleware]);
     }
   }
-  for (const [id, object] of objects) if (object.kind === "app") routeTree(id, "", [], new Set([id]), id);
+  for (const [id, object] of objects) if (object.kind === "app") {
+    if (invalidObjects.has(id) || (object.caller && !returnedObjects.has(id))) {
+      routeWarnings.push({ file: object.file, line: object.line, reason: "reassigned_or_unreturned_express_application", kind: "route" });
+      continue;
+    }
+    routeTree(id, "", [], new Set([id]), id);
+  }
   for (const declaration of declarations) if (!reached.has(declaration.owner)) unresolved.push({ file: declaration.file, line: declaration.line, caller: null, expression: declaration.path, reason: "unmounted_express_router" });
   const modules = sources.map(source => ({ name: relative(source.fileName), file: relative(source.fileName), content_hash: hash(source.text), ast_hash: hash(JSON.stringify(shape(source))), binding_hash: hash(JSON.stringify(shape(source, true))), symbols: [...symbols.values()].filter(symbol => symbol.file === relative(source.fileName)), imports: imports.filter(item => item.file === relative(source.fileName)) }));
   return {
     compiler_version: ts.version,
     modules, edges, routes, tests: tests.map(test => ({ ...test, http_calls: httpCalls.filter(call => call.caller === test.symbol) })),
     unresolved,
-    diagnostics: diagnostics.map(item => ({ file: item.file ? relative(item.file.fileName) : null, line: item.file && item.start !== undefined ? item.file.getLineAndCharacterOfPosition(item.start).line + 1 : null, reason: ts.flattenDiagnosticMessageText(item.messageText, "\n"), code: item.code })),
-    inputs: Object.fromEntries(readInputs), missing_inputs: [...missing],
+    diagnostics: diagnostics.map(item => ({ file: item.file ? relative(item.file.fileName) : null, line: item.file && item.start !== undefined ? item.file.getLineAndCharacterOfPosition(item.start).line + 1 : null, reason: ts.flattenDiagnosticMessageText(item.messageText, "\n"), code: item.code, kind: item.code === 0 ? "route" : item.file && /\.[cm]?[jt]sx?$/.test(item.file.fileName) ? "syntax" : "configuration" })).concat(routeWarnings),
+    inputs: Object.fromEntries(readInputs), missing_inputs: [...missing], missing_directories: [...missingDirectories],
   };
 }
 

@@ -148,3 +148,53 @@ def test_typescript_parse_failure_preserves_historical_evidence(tmp_path: Path) 
     path.write_text("export function check(\n")
     report = inspect_change_impact(tmp_path, language="typescript")
     assert report["impacts"][0]["reason"] == "current_source_unparseable"
+
+
+def test_dynamic_express_prefix_is_not_reported_as_an_endpoint(tmp_path: Path) -> None:
+    (tmp_path / "a.ts").write_text(
+        "import express,{Router} from 'express'; const app=express(); const router=Router();\nlet prefix:string=process.env.PREFIX;\nrouter.get('/orders',()=>true); app.use(prefix,router);\n"
+    )
+    index = build_typescript_index(tmp_path)
+    assert discover_routes(index) == []
+    assert any(item["reason"] == "dynamic_express_mount_prefix" for item in index.diagnostics)
+
+
+def test_new_dependency_directory_invalidates_project_cache(tmp_path: Path) -> None:
+    (tmp_path / "v.ts").write_text("export function validate(){return true;}\n")
+    (tmp_path / "a.ts").write_text(
+        "import {validate} from 'provider'; export function run(){return validate();}\n"
+    )
+    assert trace_callers(build_typescript_index(tmp_path), "v.ts:validate")["paths"] == []
+    package = tmp_path / "node_modules/provider"
+    package.mkdir(parents=True)
+    (package / "package.json").write_text('{"types":"index.d.ts"}')
+    (package / "index.d.ts").write_text("export {validate} from '../../v';\n")
+    refreshed = build_typescript_index(tmp_path)
+    assert not refreshed.stats["project_cache_hit"]
+    assert trace_callers(refreshed, "v.ts:validate")["paths"][0][0]["caller"] == "a.ts:run"
+
+
+def test_commonjs_express_factory_and_chained_routes(tmp_path: Path) -> None:
+    (tmp_path / "a.js").write_text(
+        "const express=require('express');\nfunction createApp(){const app=express();app.route('/orders').get(()=>true);return app;}\nfunction unused(){const hidden=express();hidden.get('/hidden',()=>true);}\n"
+    )
+    routes = discover_routes(build_typescript_index(tmp_path))
+    assert [route["path"] for route in routes] == ["/orders"]
+    assert routes[0]["factory"] == "a.js:createApp"
+
+
+def test_express_middleware_dependency_and_warning_classification(tmp_path: Path) -> None:
+    path = tmp_path / "a.ts"
+    path.write_text(
+        "import express,{Router} from 'express'; const app=express();const router=Router();\nfunction auth(){return true;} function orders(){return true;}\nrouter.get('/orders',orders);app.use('/api',auth,router);\n"
+    )
+    result = trace_callers(build_typescript_index(tmp_path), "a.ts:auth")
+    assert result["paths"][0][0]["resolution"] == "express_middleware_dependency"
+    commit_sources(tmp_path)
+    baseline = create_impact_baseline(tmp_path, "a.ts:auth", "typescript")
+    path.write_text(
+        path.read_text()
+        .replace("function auth(){return true;}", "")
+        .replace("'/orders'", "unknownPath")
+    )
+    assert compare_impact(tmp_path, baseline["baseline_id"])["symbol_removed"]

@@ -59,6 +59,7 @@ class Scope:
     receiver: str | None = None
     constructors: dict[str, str | None] = field(default_factory=dict)
     types: dict[str, str] = field(default_factory=dict)
+    attribute_assignments: set[str] = field(default_factory=set)
 
 
 @dataclass
@@ -176,6 +177,11 @@ def _collect_scope(
     scope = Scope(parent, kind)
 
     class Bindings(ast.NodeVisitor):
+        def visit_Attribute(self, node: ast.Attribute) -> None:
+            if isinstance(node.ctx, (ast.Store, ast.Del)):
+                scope.attribute_assignments.add(ast.unparse(node))
+            self.generic_visit(node)
+
         def visit_Name(self, node: ast.Name) -> None:
             if isinstance(node.ctx, (ast.Store, ast.Del)):
                 scope.bindings.add(node.id)
@@ -539,3 +545,16 @@ def index_repository(root: Path, language: str = "python") -> dict:
         "diagnostics": index.diagnostics,
         "seconds": round(perf_counter() - started, 4),
     }
+
+
+def failed_source_files(index) -> set[str]:
+    failures = [
+        item
+        for item in index.diagnostics
+        if item.get("kind") == "syntax"
+        or item["reason"]
+        in {"SyntaxError", "UnicodeError", "UnicodeDecodeError", "OSError", "duplicate_module_name"}
+    ]
+    files = {item["file"] for item in failures if item.get("file")}
+    files.update(item["other_file"] for item in failures if item.get("other_file"))
+    return files

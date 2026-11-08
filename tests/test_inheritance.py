@@ -29,3 +29,21 @@ def test_unknown_external_base_keeps_inherited_call_unresolved(tmp_path: Path) -
     result = trace_callers(build_index(tmp_path), "a:Base.check")
     assert result["paths"] == []
     assert result["unresolved_dynamic_calls"][0]["expression"] == "self.check"
+
+
+def test_constructor_assignment_overrides_parameter_annotation(tmp_path: Path) -> None:
+    (tmp_path / "a.py").write_text(
+        "class A:\n    def check(self): pass\nclass B:\n    def check(self): pass\ndef run(value: A):\n    value = B()\n    value.check()\n"
+    )
+    index = build_index(tmp_path)
+    assert trace_callers(index, "a:A.check")["paths"] == []
+    assert trace_callers(index, "a:B.check")["paths"][0][0]["resolution"] == "constructor_inference"
+
+
+def test_runtime_method_replacement_is_unresolved(tmp_path: Path) -> None:
+    (tmp_path / "a.py").write_text(
+        "class A:\n    def check(self): pass\n    def run(self, callback):\n        self.check = callback\n        self.check()\n"
+    )
+    result = trace_callers(build_index(tmp_path), "a:A.check")
+    assert result["paths"] == []
+    assert result["unresolved_dynamic_calls"][0]["expression"] == "self.check"

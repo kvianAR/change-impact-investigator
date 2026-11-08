@@ -6,7 +6,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 from .git import Change, diff_changes, read_revision_sources, repository_root, resolve_base
-from .index import Module, Symbol
+from .index import Module, Symbol, failed_source_files
 from .related import discover_route_map, discover_routes, find_related_tests
 from .repository import load_index
 from .trace import relationships, select_symbol, trace_callers
@@ -119,8 +119,7 @@ def inspect_change_impact(
     old_affected: dict[str, str] = {}
     non_semantic_files: set[str] = set()
     diagnostics = list(index.diagnostics)
-    failed_files = {item["file"] for item in index.diagnostics}
-    failed_files.update(item["other_file"] for item in index.diagnostics if item.get("other_file"))
+    failed_files = failed_source_files(index)
     diagnostics.extend({**item, "state": "working_tree"} for item in discover_route_map(index)[1])
     if base_commit and (
         symbol is None
