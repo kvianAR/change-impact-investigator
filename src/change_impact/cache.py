@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import ast
+import base64
 import dataclasses
 import hashlib
 import json
+import math
 import os
 import sqlite3
 import sys
@@ -14,6 +16,14 @@ from pathlib import Path
 
 
 def _encode(value):
+    if value is Ellipsis:
+        return {"$literal": "ellipsis"}
+    if isinstance(value, bytes):
+        return {"$literal": "bytes", "data": base64.b64encode(value).decode("ascii")}
+    if isinstance(value, complex):
+        return {"$literal": "complex", "real": _encode(value.real), "imag": _encode(value.imag)}
+    if isinstance(value, float) and not math.isfinite(value):
+        return {"$literal": "float", "value": repr(value)}
     if isinstance(value, ast.AST):
         return {
             "$ast": type(value).__name__,
@@ -44,6 +54,17 @@ def _decode(value, classes):
         return [_decode(item, classes) for item in value]
     if not isinstance(value, dict):
         return value
+    if "$literal" in value:
+        kind = value["$literal"]
+        if kind == "ellipsis":
+            return Ellipsis
+        if kind == "bytes":
+            return base64.b64decode(value["data"], validate=True)
+        if kind == "complex":
+            return complex(_decode(value["real"], classes), _decode(value["imag"], classes))
+        if kind == "float":
+            return float(value["value"])
+        raise ValueError("Invalid cached literal kind")
     if "$ast" in value:
         node_type = getattr(ast, value["$ast"], None)
         if not isinstance(node_type, type) or not issubclass(node_type, ast.AST):

@@ -1,3 +1,4 @@
+import ast
 import sqlite3
 from pathlib import Path
 
@@ -41,3 +42,16 @@ def test_queries_share_one_graph_per_source_snapshot(tmp_path: Path) -> None:
     discover_route_map(index)
     assert index.stats["graph_builds"] == 1
     assert index.stats["route_builds"] == 1
+
+
+def test_all_python_constant_types_survive_persistent_cache(tmp_path: Path) -> None:
+    (tmp_path / "a.py").write_text(
+        "VALUE = (b'bytes', 1j, 1e999, ...)\ndef check(value: tuple[int, ...]): return VALUE\n"
+    )
+    initial = build_index(tmp_path)
+    reused = build_index(tmp_path)
+    assert reused.stats["parsed_files"] == 0
+    assert reused.stats["cache_hits"] == 1
+    assert ast.dump(reused["a"].tree, include_attributes=True) == ast.dump(
+        initial["a"].tree, include_attributes=True
+    )
