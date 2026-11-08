@@ -165,3 +165,48 @@ def build_typescript_index(root: Path, sources: dict[str, str] | None = None) ->
         "route_builds": 1,
     }
     return index
+
+
+def find_related_typescript_tests(index, query: str, depth: int = 8) -> list[dict]:
+    from dataclasses import asdict
+
+    from .related import _path_matches, discover_routes
+    from .trace import relationships, select_symbol, trace_callers
+
+    symbols, edges, _ = relationships(index)
+    target = select_symbol(symbols, query)
+    trace = trace_callers(index, target.id, depth)
+    reachable = {target.id, *(path[0]["caller"] for path in trace["paths"])}
+    routes = [route for route in discover_routes(index) if route["symbol"] in reachable]
+    results = []
+    for test in index.typescript_tests:
+        calls = [
+            edge for edge in edges if edge.caller == test["symbol"] and edge.target in reachable
+        ]
+        endpoints = [
+            {
+                "file": call["file"],
+                "line": call["line"],
+                "method": call["method"],
+                "path": call["path"],
+                "route_file": route["file"],
+                "route_line": route["line"],
+                "reason": "http_path_candidate",
+            }
+            for call in test["http_calls"]
+            for route in routes
+            if route["method"] in {call["method"], "ANY"}
+            and _path_matches(route["path"], call["path"])
+        ]
+        if calls or endpoints:
+            results.append(
+                {
+                    "test": asdict(symbols[test["symbol"]]),
+                    "title": test["title"],
+                    "direct_calls": [asdict(edge) for edge in calls],
+                    "endpoint_calls": endpoints,
+                    "fixture_dependencies": [],
+                    "confidence": "static" if calls else "candidate",
+                }
+            )
+    return results

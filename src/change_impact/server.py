@@ -16,26 +16,31 @@ def create_server():
     from .ai import summarize_impact
     from .baseline import compare_impact, create_impact_baseline
     from .impact import inspect_change_impact
-    from .index import build_index, index_repository
+    from .index import index_repository
     from .related import find_related_tests
+    from .repository import load_index
     from .trace import trace_callers
 
     server = FastMCP("Change Impact Investigator")
 
     @server.tool(name="index_repository")
-    def index_repository_tool(repo: str) -> dict:
+    def index_repository_tool(repo: str, language: str = "python") -> dict:
         """Update the persistent source index and report parsed/reused file counts."""
-        return index_repository(Path(repo))
+        return index_repository(Path(repo), language)
 
     @server.tool(name="trace_callers")
-    def trace_callers_tool(repo: str, symbol: str, depth: int = 3) -> dict:
+    def trace_callers_tool(
+        repo: str, symbol: str, depth: int = 3, language: str = "python"
+    ) -> dict:
         """Trace Python callers of a symbol with file and line evidence."""
-        return trace_callers(build_index(Path(repo)), symbol, depth)
+        return trace_callers(load_index(Path(repo), language), symbol, depth)
 
     @server.tool(name="find_related_tests")
-    def find_related_tests_tool(repo: str, symbol: str, depth: int = 8) -> list[dict]:
+    def find_related_tests_tool(
+        repo: str, symbol: str, depth: int = 8, language: str = "python"
+    ) -> list[dict]:
         """Find pytest tests linked by calls, fixtures, or affected HTTP path candidates."""
-        return find_related_tests(build_index(Path(repo)), symbol, depth)
+        return find_related_tests(load_index(Path(repo), language), symbol, depth)
 
     @server.tool(name="inspect_change_impact")
     def inspect_change_impact_tool(

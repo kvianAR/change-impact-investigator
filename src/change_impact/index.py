@@ -523,14 +523,16 @@ def build_index(root: Path, sources: dict[str, str] | None = None) -> Repository
         return _build_index(root, sources, cache)
 
 
-def index_repository(root: Path) -> dict:
+def index_repository(root: Path, language: str = "python") -> dict:
     from time import perf_counter
 
     started = perf_counter()
-    index = build_index(root)
+    from .repository import load_index
+
+    index = load_index(root, language)
     return {
         "repository": str(root.resolve()),
-        "language": "python",
+        "language": index.language,
         "modules": len(index),
         "symbols": sum(len(module.symbols) for module in index.values()),
         "stats": index.stats,

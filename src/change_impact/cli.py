@@ -9,8 +9,9 @@ from pathlib import Path
 from .ai import summarize_impact
 from .baseline import compare_impact, create_impact_baseline
 from .impact import inspect_change_impact
-from .index import build_index, index_repository
+from .index import index_repository
 from .related import find_related_tests
+from .repository import load_index
 from .trace import trace_callers
 
 
@@ -37,6 +38,7 @@ def main() -> None:
     parser.add_argument("--model")
     parser.add_argument("--base", default="HEAD")
     parser.add_argument("--depth", type=int, default=8)
+    parser.add_argument("--language", choices=["python", "typescript", "auto"], default="python")
     args = parser.parse_args()
     if args.command in {"trace-callers", "related-tests", "baseline"} and not args.symbol:
         parser.error("--symbol is required for this command")
@@ -46,11 +48,13 @@ def main() -> None:
         parser.error("--provider is required for an AI summary")
     try:
         if args.command == "index":
-            result = index_repository(args.repo)
+            result = index_repository(args.repo, args.language)
         elif args.command == "trace-callers":
-            result = trace_callers(build_index(args.repo), args.symbol, args.depth)
+            result = trace_callers(load_index(args.repo, args.language), args.symbol, args.depth)
         elif args.command == "related-tests":
-            result = find_related_tests(build_index(args.repo), args.symbol, args.depth)
+            result = find_related_tests(
+                load_index(args.repo, args.language), args.symbol, args.depth
+            )
         elif args.command == "baseline":
             result = create_impact_baseline(args.repo, args.symbol)
         elif args.command == "compare":

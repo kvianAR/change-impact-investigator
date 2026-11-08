@@ -298,6 +298,11 @@ def discover_routes(index: dict[str, Module]) -> list[dict]:
 
 
 def _path_matches(template: str, url: str) -> bool:
+    template = (
+        re.sub(r":([A-Za-z_]\w*)", r"{\1}", template)
+        if "{" not in template and "<" not in template
+        else template
+    )
     template = re.sub(
         r"<(?:(\w+):)?(\w+)>",
         lambda match: "{" + match.group(2) + (":path" if match.group(1) == "path" else "") + "}",
@@ -423,6 +428,10 @@ def _fixture_links(
 def find_related_tests(index: dict[str, Module], query: str, depth: int = 8) -> list[dict]:
     symbols, edges, _ = relationships(index)
     target = select_symbol(symbols, query)
+    if index[target.module].language == "typescript":
+        from .typescript import find_related_typescript_tests
+
+        return find_related_typescript_tests(index, query, depth)
     trace = trace_callers(index, target.id, depth)
     reachable = {target.id, *(path[0]["caller"] for path in trace["paths"])}
     routes = [route for route in discover_routes(index) if route["symbol"] in reachable]

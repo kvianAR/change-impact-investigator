@@ -4,7 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from change_impact.related import discover_routes
+from change_impact.related import discover_routes, find_related_tests
+from change_impact.repository import load_index
 from change_impact.trace import trace_callers
 from change_impact.typescript import build_typescript_index, compiler_path
 
@@ -57,3 +58,15 @@ def test_express_mounts_and_jest_callback_metadata(tmp_path: Path) -> None:
         "test validates" in path[0]["caller"]
         for path in trace_callers(index, "v.ts:validate")["paths"]
     )
+
+
+def test_typescript_test_links_and_mixed_repository(tmp_path: Path) -> None:
+    (tmp_path / "v.ts").write_text("export const validate = () => true;\n")
+    (tmp_path / "v.test.ts").write_text(
+        "import {validate} from './v';\nit('validates',()=>{validate();});\n"
+    )
+    (tmp_path / "legacy.py").write_text("def validate(): return True\n")
+    index = load_index(tmp_path, "auto")
+    assert index.language == "mixed"
+    assert find_related_tests(index, "v.ts:validate")[0]["title"] == "validates"
+    assert trace_callers(index, "legacy:validate")["paths"] == []
