@@ -141,6 +141,8 @@ def _discover_route_map(index: dict[str, Module]) -> tuple[list[dict], list[dict
                 if method not in HTTP_METHODS | {"api_route", "route"}:
                     continue
                 owner = object_id(module, decorator.func.value)
+                if owner is None:
+                    continue
                 path = (
                     _literal(decorator.args[0]) if decorator.args else _keyword(decorator, "path")
                 )
@@ -254,15 +256,36 @@ def _discover_route_map(index: dict[str, Module]) -> tuple[list[dict], list[dict
 def discover_route_map(index: dict[str, Module]) -> tuple[list[dict], list[dict]]:
     memo = getattr(index, "_memo", None)
     if memo is None:
-        return _discover_route_map(index)
+        return _all_route_map(index)
     if "routes" not in memo:
-        from .factories import factory_routes
-
-        routes, diagnostics = _discover_route_map(index)
-        factory_found, factory_warnings = factory_routes(index, _discover_route_map)
-        memo["routes"] = (routes + factory_found, diagnostics + factory_warnings)
+        memo["routes"] = _all_route_map(index)
         index.stats["route_builds"] = index.stats.get("route_builds", 0) + 1
     return memo["routes"]
+
+
+def _all_route_map(index):
+    from .factories import factory_routes
+    from .flask import discover_flask_routes
+
+    routes, diagnostics = _discover_route_map(index)
+    factory_found, factory_warnings = factory_routes(index, _discover_route_map)
+    flask_found, flask_warnings = discover_flask_routes(index)
+    mounted = {(route["file"], route["line"]) for route in factory_found}
+    registrations = {
+        (item["file"], item["line"])
+        for route in factory_found
+        for item in route.get("mount_evidence", [])
+    }
+    diagnostics = [
+        item
+        for item in diagnostics
+        if not (item["reason"] == "unmounted_router" and (item["file"], item["line"]) in mounted)
+        and not (
+            item["reason"] == "conditional_or_dynamic_router_mount"
+            and (item["file"], item["line"]) in registrations
+        )
+    ]
+    return routes + factory_found + flask_found, diagnostics + factory_warnings + flask_warnings
 
 
 def discover_routes(index: dict[str, Module]) -> list[dict]:
@@ -270,6 +293,11 @@ def discover_routes(index: dict[str, Module]) -> list[dict]:
 
 
 def _path_matches(template: str, url: str) -> bool:
+    template = re.sub(
+        r"<(?:(\w+):)?(\w+)>",
+        lambda match: "{" + match.group(2) + (":path" if match.group(1) == "path" else "") + "}",
+        template,
+    )
     parts = re.split(r"(\{[^{}]+\})", template)
     pattern = "".join(
         (".*" if part.endswith(":path}") else "[^/]+")
