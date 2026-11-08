@@ -56,3 +56,16 @@ The Round 3 GitHub CI run passed for both Python versions.
 - Generated a live local Ollama summary for the TypeScript example, reporting one endpoint and three related tests.
 - OPENAI_API_KEY was unavailable in the execution environment. Live online execution remains unverified. Mocked request, response, credential, size, and failure cases pass.
 - The global Codex profile is user-managed. The usage guide supplies the official registration procedure and tested server configuration.
+
+
+## Models panel — version 0.3
+
+- Ninety-six Python tests and three executable TypeScript/Node tests pass locally.
+- Covered OpenRouter requests, arbitrary model IDs, active-model summary selection, provider catalogs, key replacement/preservation/removal, credential rollback, stale revisions, and invalid endpoint handling.
+- Covered local panel static assets, session bootstrap, Host/Origin/token rejection, model activation, provider failure responses, and model test dispatch.
+- Browser-tested save, edit, catalog suggestions, provider key replacement, active-model switching, mocked connection testing, and reload persistence against an isolated in-memory credential fixture. The fixture made no inference requests.
+- Verified the 375px mobile page and model dialog without horizontal overflow. The system dark theme and the actual blank OpenRouter setup form were inspected.
+- The live unauthenticated OpenRouter catalog returned 461 models. Live OpenRouter inference and real credential writes remain pending the user's key.
+- Ruff lint/format and JavaScript syntax checks pass. Built a wheel and source distribution and verified the Models CLI and packaged web assets from a separate wheel installation.
+- The user-facing panel is available on loopback port 8765. It starts with no saved model profiles.
+- The existing demo emits one upstream Starlette/httpx deprecation warning. All runtime checks pass.

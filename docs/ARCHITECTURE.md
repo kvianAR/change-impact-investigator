@@ -13,7 +13,7 @@ flowchart TD
     Routes --> Report[Deterministic impact report]
     Tests --> Report
     Report --> Snapshot[Baseline comparison]
-    Report --> AI[Optional Ollama or OpenAI summary]
+    Report --> AI[Optional active-model summary]
 ```
 
 ## Source and symbol index
@@ -64,7 +64,7 @@ TypeScript test/it callbacks supply test symbols. Direct calls provide static li
 
 Baseline JSON stores the investigation evidence. Symbol AST fingerprints distinguish source edits from line movement. Connection identities omit line numbers so moved references retain their relationships. Removed edges keep their earlier locations.
 
-AI receives a bounded evidence projection. Scope counts expose omitted impacts, routes, tests, paths, and unresolved calls. The original deterministic report is returned alongside the summary. Provider transport uses environment-based credentials and bounded responses.
+AI receives a bounded evidence projection. Scope counts expose omitted impacts, routes, tests, paths, and unresolved calls. The original deterministic report is returned alongside the summary. Provider transport resolves the active model profile or an explicit provider. OpenRouter and custom OpenAI-compatible endpoints use Chat Completions, while OpenAI uses Responses and Ollama uses its generate API. Credentials come from the OS keychain or environment. Responses are bounded and redirects are denied. The loopback Models panel uses session tokens and Host/Origin checks. Model metadata uses atomic writes, revision checks, and cross-process locking.
 
 ## Supported limits
 

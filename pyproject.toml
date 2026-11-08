@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "change-impact-investigator"
-version = "0.2.0"
+version = "0.3.0"
 description = "Evidence-backed Python and TypeScript change impact investigation for coding agents"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -26,13 +26,14 @@ change-impact-mcp = "change_impact.server:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-change_impact = ["*.cjs"]
+change_impact = ["*.cjs", "web/*.html", "web/*.css", "web/*.js", "web/*.svg"]
 
 [tool.uv]
 cache-keys = [
     { file = "pyproject.toml" },
     { file = "src/**/*.py" },
     { file = "src/**/*.cjs" },
+    { file = "src/change_impact/web/*" },
     { file = "README.md" },
     { file = "LICENSE" },
 ]

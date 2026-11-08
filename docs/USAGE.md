@@ -73,13 +73,20 @@ Local requests go to `http://127.0.0.1:11434/api/generate`. The project does not
 
 ## Online AI
 
-Set `OPENAI_API_KEY` in the launching process environment, then select the provider explicitly.
+Install the panel extra with `pip install '.[panel]'`, then run `change-impact models`. Select OpenRouter, OpenAI, Ollama, or Custom API. Browse provider models or enter a manual model ID. Save the provider key and choose **Save & activate**. Use **Connections** to replace a key later. Empty key fields preserve saved credentials. Keys are shared across profiles for the selected provider and stored in the system keychain. Custom API uses one shared endpoint.
 
 ```sh
+# Uses the active saved model, including from MCP summarize_impact.
+change-impact summarize --repo /absolute/repository --symbol validate_order
+
+# Explicit selection with OPENROUTER_API_KEY in the environment.
+change-impact summarize --repo /absolute/repository --symbol validate_order --provider openrouter --model vendor/model-name
+
+# OpenAI remains available with OPENAI_API_KEY.
 change-impact summarize --repo /absolute/repository --symbol validate_order --provider openai --model gpt-4.1-mini
 ```
 
-This sends compact report evidence to the OpenAI Responses API. Provider pricing applies. Summaries include their provider, model, scope omissions, and the full original evidence report. Model-generated descriptions can be checked against the source references. Core analysis works with no API key.
+OpenRouter and Custom API use Chat Completions. OpenAI uses Responses. Provider pricing applies. Remote summaries send bounded report evidence. Summaries include their provider, model, scope omissions, and the full original evidence report. Core analysis works with no API key. If the system keychain is unavailable, environment keys remain supported. The loopback panel defaults to port 8765. Use `--no-browser` or `--port` as needed.
 
 ## Connect an MCP client
 

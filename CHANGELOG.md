@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0
+
+- Added a local Models settings panel with saved profiles, provider catalogs, manual model IDs, connection testing, and active-model switching.
+- Added OpenRouter and custom OpenAI-compatible Chat Completions providers while preserving OpenAI and local Ollama.
+- Added OS-keychain credential storage, environment fallback, metadata-only settings, atomic writes, revision conflicts, and credential rollback.
+- CLI and MCP summaries use the active model unless a provider is explicitly selected.
+- Protected the loopback panel with session tokens, Host/Origin validation, restrictive browser headers, bounded requests, and credential-safe responses.
+
 ## 0.2.0
 
 - Added content-addressed SQLite source indexes and index_repository statistics.

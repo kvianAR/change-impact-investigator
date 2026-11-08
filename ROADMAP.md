@@ -45,3 +45,14 @@ The first three steps were pushed individually. Rounds 2–4 used one commit per
 This round contains fifteen meaningful feature, fix, benchmark, verification, and release commits. Every commit was pushed.
 
 Static analysis cannot prove all runtime behavior. Reports separate static links, candidates, diagnostics, and unresolved dynamic calls.
+
+
+## Models settings — completed in version 0.3
+
+1. Secure provider credentials and atomic model profiles.
+2. OpenRouter/custom provider integration and active-model CLI/MCP summaries.
+3. Local Models panel with catalog browsing, manual IDs, and provider key updates.
+4. Regression, browser-flow, responsive-layout, and package verification.
+5. Documentation, release packaging, and GitHub CI verification.
+
+A live OpenRouter inference request requires a user-supplied key.

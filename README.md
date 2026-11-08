@@ -2,7 +2,7 @@
 
 Trace how Python or TypeScript changes may affect callers, imports, API endpoints, and tests. Every connection carries source references. Save an investigation before editing, then compare source changes and graph changes afterward.
 
-Version 0.2 adds persistent incremental indexes, Python C3 inheritance and typed receivers, FastAPI dependencies/factories, Flask/Django adapters, and TypeScript compiler analysis with Express and test links. See [the usage guide](docs/USAGE.md), [advanced analysis](docs/ADVANCED.md), [pinned benchmarks](benchmarks/README.md), and [verification record](VALIDATION.md).
+Version 0.3 adds a local Models panel, OpenRouter, custom OpenAI-compatible endpoints, secure provider keys, and active model profiles. Version 0.2 introduced persistent incremental indexes, Python C3 inheritance and typed receivers, FastAPI dependencies/factories, Flask/Django adapters, and TypeScript compiler analysis with Express and test links. See [the usage guide](docs/USAGE.md), [advanced analysis](docs/ADVANCED.md), [pinned benchmarks](benchmarks/README.md), and [verification record](VALIDATION.md).
 
 ## Quick start
 
@@ -36,17 +36,37 @@ Snapshots and source indexes live in `.impact-cache/` inside the inspected repos
 
 ## Optional AI
 
-Repository investigation runs locally. Summary generation is optional and selected for each request.
+Repository investigation runs locally. AI summaries are optional. Open the local Models panel to configure the provider and model used by CLI and MCP summaries.
 
 ```sh
-# Local Ollama. Install Ollama and pull the chosen model first.
+pip install '.[panel,mcp]'
+change-impact models
+# Headless use or a different local port
+change-impact models --no-browser --port 8765
+```
+
+Open **Models**, choose **Add model**, select a provider, browse its catalog or enter an exact model ID, enter its API key, and select **Save & activate**. Save more profiles and use **Make active** to switch. **Connections** lets you update a provider key. An empty key field preserves the existing key. Keys and endpoints are shared by all profiles for that provider. Custom API supports one shared OpenAI-compatible endpoint. Display names and output limits are per model.
+
+Supported providers are **OpenRouter**, **OpenAI**, **Ollama**, and **Custom API**. Ollama requires a running local installation with the selected model already pulled. OpenRouter models use their full provider/model IDs. A manual ID can be saved even when the provider catalog is unavailable. **Test model** sends a short prompt to that provider and may incur charges.
+
+API keys entered in the panel go into the operating-system keychain. The panel requires a supported unlocked macOS, Windows, SecretService, or KWallet backend. If secure storage is unavailable, use environment keys. Metadata-only settings live outside the repository, under `~/Library/Application Support/ChangeImpactInvestigator` on macOS or the platform configuration directory. `CHANGE_IMPACT_CONFIG_DIR` overrides that directory. The panel binds to `127.0.0.1`, validates Host/Origin, and uses a per-launch API session token.
+
+```sh
+# Use the saved active model.
+change-impact summarize --repo /path/to/repo --symbol validate_order
+
+# Or explicitly select a provider and model.
+# Set OPENROUTER_API_KEY in the environment before this command.
+change-impact summarize --repo /path/to/repo --symbol validate_order --provider openrouter --model vendor/model-name
+
+# Local Ollama
 change-impact summarize --repo /path/to/repo --symbol validate_order --provider ollama --model qwen3.5:2b-q4_K_M
 
-# Online OpenAI. Set OPENAI_API_KEY in the environment first.
+# OpenAI remains supported with OPENAI_API_KEY.
 change-impact summarize --repo /path/to/repo --symbol validate_order --provider openai --model gpt-4.1-mini
 ```
 
-Ollama uses `http://127.0.0.1:11434`. OpenAI uses the Responses API and incurs provider charges. The online option sends a bounded projection of report evidence, including repository paths, symbol names, routes, and test references. `summary_scope` records omissions. API keys stay in the environment. AI output includes the original local evidence report.
+Custom API accepts an HTTPS base URL and an optional key, with `CHANGE_IMPACT_CUSTOM_API_KEY` as its environment fallback. HTTP endpoints are supported on loopback. OpenRouter and Custom API use Chat Completions. OpenAI uses the Responses API. Remote summaries send a bounded projection of evidence, including repository paths, symbol names, routes, and test references. `summary_scope` records omissions. AI output includes the original local evidence report.
 
 ## MCP tools
 
