@@ -6,8 +6,9 @@ from dataclasses import asdict
 from pathlib import Path
 
 from .git import Change, diff_changes, read_revision_sources, repository_root, resolve_base
-from .index import Module, Symbol, build_index
+from .index import Module, Symbol
 from .related import discover_route_map, discover_routes, find_related_tests
+from .repository import load_index
 from .trace import relationships, select_symbol, trace_callers
 
 
@@ -72,16 +73,47 @@ def _symbol_report(
 
 
 def inspect_change_impact(
-    root: Path, symbol: str | None = None, base: str = "HEAD", depth: int = 8
+    root: Path,
+    symbol: str | None = None,
+    base: str = "HEAD",
+    depth: int = 8,
+    language: str = "python",
 ) -> dict:
     if not 1 <= depth <= 32:
         raise ValueError("Depth must be between 1 and 32")
     root = repository_root(root)
     base_commit = resolve_base(root, base)
     changes = diff_changes(root, base_commit)
-    index = build_index(root)
+    index = load_index(root, language)
     symbols, _, unresolved = relationships(index)
     current_affected, module_changes = _affected(index, changes, "working_tree")
+    selected_suffixes = (
+        {".py"}
+        if language == "python"
+        else {".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"}
+    )
+    if language == "auto":
+        selected_suffixes.add(".py")
+    configuration_changes = [
+        change.file
+        for change in changes
+        if language != "python"
+        and (
+            (Path(change.file).name.startswith("tsconfig") and change.file.endswith(".json"))
+            or Path(change.file).name
+            in {"package.json", "package-lock.json", "yarn.lock", "pnpm-lock.yaml"}
+        )
+    ]
+    if configuration_changes:
+        current_affected.update(
+            {
+                item.id: "typescript_configuration_change"
+                for module in index.values()
+                if module.language == "typescript"
+                for item in module.symbols
+                if item.kind != "class"
+            }
+        )
     old_index: dict[str, Module] = {}
     old_symbols: dict[str, Symbol] = {}
     old_affected: dict[str, str] = {}
@@ -95,9 +127,19 @@ def inspect_change_impact(
         or not any(symbol in {item.id, item.name, item.qualname} for item in symbols.values())
     ):
         sources, read_diagnostics = read_revision_sources(root, base_commit)
-        old_index = build_index(root, sources)
+        old_index = load_index(root, language, sources)
         old_symbols, _, _ = relationships(old_index)
         old_affected, old_module_changes = _affected(old_index, changes, "base")
+        if configuration_changes:
+            old_affected.update(
+                {
+                    item.id: "typescript_configuration_change"
+                    for module in old_index.values()
+                    if module.language == "typescript"
+                    for item in module.symbols
+                    if item.kind != "class"
+                }
+            )
         module_changes.extend(old_module_changes)
         diagnostics.extend(read_diagnostics)
         diagnostics.extend({**item, "state": "base"} for item in old_index.diagnostics)
@@ -118,6 +160,8 @@ def inspect_change_impact(
         }
 
         def meaningful(target_id: str, reason: str) -> str | None:
+            if reason == "typescript_configuration_change":
+                return reason
             current_symbol, old_symbol = symbols.get(target_id), old_symbols.get(target_id)
             if not current_symbol or not old_symbol or current_symbol.file in binding_changes:
                 return reason
@@ -175,14 +219,21 @@ def inspect_change_impact(
                 )
     return {
         "schema_version": 1,
+        "language": language,
         "index_stats": dict(index.stats),
         "repository": str(root),
         "base": base,
         "base_commit": base_commit,
         "depth": depth,
-        "changed_files": [change.file for change in changes if change.file.endswith(".py")],
+        "changed_files": [
+            change.file for change in changes if Path(change.file).suffix in selected_suffixes
+        ],
+        "configuration_changes": configuration_changes,
         "unsupported_changed_files": [
-            change.file for change in changes if not change.file.endswith(".py")
+            change.file
+            for change in changes
+            if Path(change.file).suffix not in selected_suffixes
+            and change.file not in configuration_changes
         ],
         "non_semantic_changed_files": sorted(non_semantic_files),
         "impacts": reports,

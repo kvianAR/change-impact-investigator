@@ -56,17 +56,19 @@ def main() -> None:
                 load_index(args.repo, args.language), args.symbol, args.depth
             )
         elif args.command == "baseline":
-            result = create_impact_baseline(args.repo, args.symbol)
+            result = create_impact_baseline(args.repo, args.symbol, args.language)
         elif args.command == "compare":
             result = compare_impact(args.repo, args.baseline_id)
         elif args.command == "summarize":
             result = summarize_impact(
-                inspect_change_impact(args.repo, args.symbol, args.base, args.depth),
+                inspect_change_impact(args.repo, args.symbol, args.base, args.depth, args.language),
                 args.provider,
                 args.model,
             )
         else:
-            result = inspect_change_impact(args.repo, args.symbol, args.base, args.depth)
+            result = inspect_change_impact(
+                args.repo, args.symbol, args.base, args.depth, args.language
+            )
     except (ValueError, OSError, RuntimeError) as exc:
         parser.exit(2, f"error: {exc}\n")
     print(json.dumps(result, indent=2))

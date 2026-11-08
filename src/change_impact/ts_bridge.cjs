@@ -24,7 +24,7 @@ function analyze(request) {
     const absolute = path.resolve(file);
     const name = relative(absolute);
     let value;
-    if (overrides && /\.[cm]?[jt]sx?$/.test(name) && !name.startsWith("../") && !name.includes("node_modules/")) {
+    if (overrides && (/\.[cm]?[jt]sx?$/.test(name) || name.endsWith(".json")) && !name.startsWith("../") && !name.includes("node_modules/")) {
       value = Object.hasOwn(overrides, name) ? overrides[name] : undefined;
     } else {
       value = originalRead(absolute);
@@ -35,15 +35,15 @@ function analyze(request) {
   const fileExists = file => {
     const absolute = path.resolve(file);
     const name = relative(absolute);
-    const exists = overrides && /\.[cm]?[jt]sx?$/.test(name) && !name.startsWith("../") && !name.includes("node_modules/")
+    const exists = overrides && (/\.[cm]?[jt]sx?$/.test(name) || name.endsWith(".json")) && !name.startsWith("../") && !name.includes("node_modules/")
       ? Object.hasOwn(overrides, name) : ts.sys.fileExists(absolute);
     if (!exists) missing.add(absolute);
     return exists;
   };
   let options = { target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.CommonJS, allowJs: true, checkJs: true, noEmit: true, skipLibCheck: true };
   const diagnostics = [];
-  const configFile = ts.findConfigFile(root, fileExists, "tsconfig.json");
-  if (configFile) {
+  const configFile = path.join(root, "tsconfig.json");
+  if (fileExists(configFile)) {
     const config = ts.readConfigFile(configFile, readFile);
     if (config.error) diagnostics.push(config.error);
     else {
@@ -74,7 +74,9 @@ function analyze(request) {
   };
   const program = ts.createProgram(files, options, host);
   const checker = program.getTypeChecker();
-  const sources = program.getSourceFiles().filter(source => ownFiles.has(path.resolve(source.fileName)) && !source.isDeclarationFile);
+  const allSources = program.getSourceFiles().filter(source => ownFiles.has(path.resolve(source.fileName)) && !source.isDeclarationFile);
+  diagnostics.push(...allSources.flatMap(source => source.parseDiagnostics));
+  const sources = allSources.filter(source => source.parseDiagnostics.length === 0);
   const symbols = new Map();
   const nodeIds = new Map();
   const counters = new Map();
@@ -254,7 +256,6 @@ function analyze(request) {
     ts.forEachChild(node, child => visit(child, caller));
   }
   for (const source of sources) {
-    diagnostics.push(...source.parseDiagnostics);
     visit(source);
   }
   const routes = [];

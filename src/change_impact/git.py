@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 HUNK = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
+SOURCE_SUFFIXES = {".py", ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"}
 
 
 @dataclass
@@ -62,7 +63,7 @@ def diff_changes(root: Path, base_commit: str | None) -> list[Change]:
                 continue
             path = root / filename
             if path.is_file() and not path.is_symlink():
-                count = len(path.read_bytes().splitlines()) if filename.endswith(".py") else 0
+                count = len(path.read_bytes().splitlines()) if path.suffix in SOURCE_SUFFIXES else 0
                 changes.append(Change(filename, "A", set(), set(range(1, count + 1))))
         return changes
     raw_changes = _git(
@@ -85,7 +86,7 @@ def diff_changes(root: Path, base_commit: str | None) -> list[Change]:
                 "--",
                 filename,
             ).decode(errors="replace")
-            if filename.endswith(".py")
+            if Path(filename).suffix in SOURCE_SUFFIXES
             else ""
         )
         older: set[int] = set()
@@ -105,7 +106,7 @@ def diff_changes(root: Path, base_commit: str | None) -> list[Change]:
             continue
         path = root / filename
         if path.is_file() and not path.is_symlink():
-            count = len(path.read_bytes().splitlines()) if filename.endswith(".py") else 0
+            count = len(path.read_bytes().splitlines()) if path.suffix in SOURCE_SUFFIXES else 0
             changes.append(Change(filename, "A", set(), set(range(1, count + 1))))
     return changes
 
@@ -121,7 +122,7 @@ def read_revision_sources(root: Path, commit: str) -> tuple[dict[str, str], list
         if (
             mode in {"100644", "100755"}
             and kind == "blob"
-            and path.endswith(".py")
+            and Path(path).suffix in SOURCE_SUFFIXES | {".json"}
             and not excluded.intersection(Path(path).parts)
         ):
             entries.append((path, object_id))
@@ -142,7 +143,10 @@ def read_revision_sources(root: Path, commit: str) -> tuple[dict[str, str], list
         data = objects.read(int(size))
         objects.read(1)
         try:
-            encoding, _ = tokenize.detect_encoding(io.BytesIO(data).readline)
+            if filename.endswith(".py"):
+                encoding, _ = tokenize.detect_encoding(io.BytesIO(data).readline)
+            else:
+                encoding = "utf-16" if data.startswith((b"\xff\xfe", b"\xfe\xff")) else "utf-8-sig"
             sources[filename] = data.decode(encoding)
         except (SyntaxError, UnicodeError) as exc:
             diagnostics.append(

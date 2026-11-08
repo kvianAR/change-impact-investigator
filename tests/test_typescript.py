@@ -1,9 +1,12 @@
 import os
 import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
 
+from change_impact.baseline import compare_impact, create_impact_baseline
+from change_impact.impact import inspect_change_impact
 from change_impact.related import discover_routes, find_related_tests
 from change_impact.repository import load_index
 from change_impact.trace import trace_callers
@@ -70,3 +73,78 @@ def test_typescript_test_links_and_mixed_repository(tmp_path: Path) -> None:
     assert index.language == "mixed"
     assert find_related_tests(index, "v.ts:validate")[0]["title"] == "validates"
     assert trace_callers(index, "legacy:validate")["paths"] == []
+
+
+def commit_sources(root: Path) -> None:
+    for arguments in [
+        ["init"],
+        ["add", "."],
+        [
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "-m",
+            "baseline",
+        ],
+    ]:
+        subprocess.run(["git", *arguments], cwd=root, check=True, capture_output=True)
+
+
+def test_typescript_git_impact_baseline_and_deleted_source(tmp_path: Path) -> None:
+    (tmp_path / "v.ts").write_text("export function validate() { return 1; }\n")
+    (tmp_path / "api.ts").write_text(
+        "import express from 'express'; import {validate} from './v';\nconst app=express(); function route() {return validate();}\napp.post('/orders',route);\n"
+    )
+    (tmp_path / "v.test.ts").write_text(
+        "import {validate} from './v'; test('validates',()=>{validate();});\n"
+    )
+    commit_sources(tmp_path)
+    baseline = create_impact_baseline(tmp_path, "v.ts:validate", "typescript")
+    (tmp_path / "v.ts").write_text("export function validate() { return 2; }\n")
+    report = inspect_change_impact(tmp_path, language="typescript")
+    assert report["changed_files"] == ["v.ts"]
+    assert report["impacts"][0]["affected_routes"][0]["path"] == "/orders"
+    assert report["impacts"][0]["related_tests"][0]["title"] == "validates"
+    assert compare_impact(tmp_path, baseline["baseline_id"])["symbol_source_changed"]
+    (tmp_path / "v.ts").unlink()
+    deleted = inspect_change_impact(tmp_path, language="typescript")
+    assert deleted["impacts"][0]["reason"] == "removed_symbol"
+    assert deleted["impacts"][0]["evidence_state"] == "base"
+
+
+def test_historical_tsconfig_paths_and_configuration_impact(tmp_path: Path) -> None:
+    (tmp_path / "a.ts").write_text("export function check() {return 1;}\n")
+    (tmp_path / "b.ts").write_text("export function check() {return 2;}\n")
+    (tmp_path / "caller.ts").write_text(
+        "import {check} from '@validator'; export function run(){return check();}\n"
+    )
+    config = tmp_path / "tsconfig.json"
+    config.write_text('{"compilerOptions":{"baseUrl":".","paths":{"@validator":["./a"]}}}')
+    commit_sources(tmp_path)
+    baseline = create_impact_baseline(tmp_path, "a.ts:check", "typescript")
+    config.write_text('{"compilerOptions":{"baseUrl":".","paths":{"@validator":["./b"]}}}')
+    report = inspect_change_impact(tmp_path, language="typescript")
+    assert report["configuration_changes"] == ["tsconfig.json"]
+    assert report["impacts"]
+    comparison = compare_impact(tmp_path, baseline["baseline_id"])
+    assert comparison["changes"]["callers"]["removed"][0]["caller"] == "caller.ts:run"
+    (tmp_path / "a.ts").unlink()
+    removed = next(
+        item
+        for item in inspect_change_impact(tmp_path, language="typescript")["impacts"]
+        if item["symbol"]["module"] == "a.ts"
+    )
+    assert removed["caller_paths"][0][0]["caller"] == "caller.ts:run"
+
+
+def test_typescript_parse_failure_preserves_historical_evidence(tmp_path: Path) -> None:
+    path = tmp_path / "a.ts"
+    path.write_text("export function check() {return 1;}\n")
+    commit_sources(tmp_path)
+    path.write_text("export function check(\n")
+    report = inspect_change_impact(tmp_path, language="typescript")
+    assert report["impacts"][0]["reason"] == "current_source_unparseable"

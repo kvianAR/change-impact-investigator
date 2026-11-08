@@ -44,15 +44,19 @@ def create_server():
 
     @server.tool(name="inspect_change_impact")
     def inspect_change_impact_tool(
-        repo: str, symbol: str | None = None, base: str = "HEAD", depth: int = 8
+        repo: str,
+        symbol: str | None = None,
+        base: str = "HEAD",
+        depth: int = 8,
+        language: str = "python",
     ) -> dict:
         """Inspect Python working tree changes against a Git base and report source evidence."""
-        return inspect_change_impact(Path(repo), symbol, base, depth)
+        return inspect_change_impact(Path(repo), symbol, base, depth, language)
 
     @server.tool(name="create_impact_baseline")
-    def create_baseline_tool(repo: str, symbol: str) -> dict:
+    def create_baseline_tool(repo: str, symbol: str, language: str = "python") -> dict:
         """Save current evidence before editing a symbol."""
-        return create_impact_baseline(Path(repo), symbol)
+        return create_impact_baseline(Path(repo), symbol, language)
 
     @server.tool(name="compare_impact")
     def compare_impact_tool(repo: str, baseline_id: str) -> dict:
@@ -61,10 +65,16 @@ def create_server():
 
     @server.tool(name="summarize_impact")
     def summarize_impact_tool(
-        repo: str, provider: str, symbol: str | None = None, model: str | None = None
+        repo: str,
+        provider: str,
+        symbol: str | None = None,
+        model: str | None = None,
+        language: str = "python",
     ) -> dict:
         """Generate an optional summary. ollama uses local AI. openai sends report data online."""
-        return summarize_impact(inspect_change_impact(Path(repo), symbol), provider, model)
+        return summarize_impact(
+            inspect_change_impact(Path(repo), symbol, language=language), provider, model
+        )
 
     return server
 

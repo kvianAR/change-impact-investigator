@@ -8,7 +8,7 @@ from pathlib import Path
 
 from .git import repository_root
 from .impact import inspect_change_impact
-from .index import build_index
+from .repository import load_index
 from .trace import relationships
 
 
@@ -19,9 +19,9 @@ def _cache(root: Path) -> Path:
     return cache
 
 
-def create_impact_baseline(root: Path, symbol: str) -> dict:
+def create_impact_baseline(root: Path, symbol: str, language: str = "python") -> dict:
     root = repository_root(root)
-    report = inspect_change_impact(root, symbol)
+    report = inspect_change_impact(root, symbol, language=language)
     baseline_id = uuid.uuid4().hex
     cache = _cache(root)
     cache.mkdir(exist_ok=True)
@@ -70,14 +70,15 @@ def compare_impact(root: Path, baseline_id: str) -> dict:
         raise ValueError("Baseline belongs to another repository")
     symbol = before["impacts"][0]["symbol"]
     symbol_id = f"{symbol['module']}:{symbol['qualname']}"
-    index = build_index(root)
+    language = before.get("language", "python")
+    index = load_index(root, language)
     symbols, _, _ = relationships(index)
     removed = symbol_id not in symbols
     failed_files = {item["file"] for item in index.diagnostics}
     failed_files.update(item["other_file"] for item in index.diagnostics if item.get("other_file"))
     if removed and symbol["file"] in failed_files:
         raise ValueError(f"Cannot compare symbol because {symbol['file']} could not be indexed")
-    current = inspect_change_impact(root, None if removed else symbol_id)
+    current = inspect_change_impact(root, None if removed else symbol_id, language=language)
     if removed:
         current["impacts"] = [
             {"symbol": symbol, "caller_paths": [], "affected_routes": [], "related_tests": []}

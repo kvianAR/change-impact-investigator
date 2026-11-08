@@ -76,7 +76,7 @@ def _valid_inputs(payload: dict, own: set[str]) -> bool:
     try:
         for filename, expected in payload["inputs"].items():
             if filename not in own:
-                text = Path(filename).read_text(encoding="utf-8-sig")
+                text = Path(filename).read_bytes().decode("utf-8-sig")
                 if hashlib.sha256(text.encode()).hexdigest() != expected:
                     return False
         return not any(Path(filename).exists() for filename in payload.get("missing_inputs", []))
@@ -103,6 +103,15 @@ def build_typescript_index(root: Path, sources: dict[str, str] | None = None) ->
     bridge = Path(__file__).with_name("ts_bridge.cjs")
     request = {"root": str(root), "files": files, "sources": sources}
     own = {str(root / name) for name in files}
+    if sources is not None:
+        texts.update(
+            {
+                name: hashlib.sha256(text.encode()).hexdigest()
+                for name, text in sources.items()
+                if name.endswith(".json")
+            }
+        )
+        own.update(str(root / name) for name in sources)
     with IndexCache(root, str(bridge)) as cache:
         key = cache.key(
             "typescript-project",

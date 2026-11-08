@@ -281,7 +281,7 @@ def _build_index(root: Path, sources: dict[str, str] | None, cache) -> Repositor
     paths = (
         _source_files(root)
         if sources is None
-        else [root / filename for filename in sorted(sources)]
+        else [root / filename for filename in sorted(sources) if filename.endswith(".py")]
     )
     strip_src = not (
         (root / "src" / "__init__.py").is_file()
