@@ -79,6 +79,7 @@ class RepositoryIndex(dict[str, Module]):
     def __init__(self) -> None:
         super().__init__()
         self.diagnostics: list[dict] = []
+        self.stats = {"parsed_files": 0, "cache_hits": 0}
 
 
 def _binding_hash(tree: ast.Module) -> str:
@@ -251,7 +252,7 @@ def _collect_scope(
     return scope
 
 
-def build_index(root: Path, sources: dict[str, str] | None = None) -> RepositoryIndex:
+def _build_index(root: Path, sources: dict[str, str] | None, cache) -> RepositoryIndex:
     root = root.resolve()
     if not root.is_dir():
         raise ValueError(f"Repository directory does not exist: {root}")
@@ -288,7 +289,16 @@ def build_index(root: Path, sources: dict[str, str] | None = None) -> Repository
                     text = source.read()
             else:
                 text = sources[relative.as_posix()]
+            cache_key = cache.key(relative.as_posix(), name, text)
+            cached = cache.get(
+                cache_key, {kind.__name__: kind for kind in (Module, Scope, Symbol, Call)}
+            )
+            if cached and cached.name == name and cached.file == relative.as_posix():
+                index[name] = cached
+                index.stats["cache_hits"] += 1
+                continue
             tree = ast.parse(text, filename=str(relative))
+            index.stats["parsed_files"] += 1
         except (SyntaxError, UnicodeError, OSError) as exc:
             index.diagnostics.append(
                 {
@@ -469,4 +479,16 @@ def build_index(root: Path, sources: dict[str, str] | None = None) -> Repository
 
         Visitor().visit(tree)
         index[name] = module
+        cache.put(cache_key, module)
+    index.stats["cache_status"] = cache.status
     return index
+
+
+def build_index(root: Path, sources: dict[str, str] | None = None) -> RepositoryIndex:
+    from .cache import IndexCache
+
+    root = root.resolve()
+    if not root.is_dir():
+        raise ValueError(f"Repository directory does not exist: {root}")
+    with IndexCache(root, __file__) as cache:
+        return _build_index(root, sources, cache)
