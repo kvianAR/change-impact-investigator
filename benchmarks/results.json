@@ -1,0 +1,262 @@
+{
+  "python": "3.11.17",
+  "machine": "arm64",
+  "scope": "Nine manually labeled direct caller symbols across three pinned public repositories. These cases do not establish repository-wide precision or recall.",
+  "cases": [
+    {
+      "name": "flask-debug-flag",
+      "repository": "https://github.com/pallets/flask",
+      "commit": "49943b5a94413a530761350f04e896f76e8d620e",
+      "language": "python",
+      "symbol": "flask.helpers:get_debug_flag",
+      "modules": 24,
+      "expected": [
+        {
+          "caller": "flask.app:Flask.run",
+          "file": "flask/app.py",
+          "line": 723
+        },
+        {
+          "caller": "flask.cli:ScriptInfo.load_app",
+          "file": "flask/cli.py",
+          "line": 369
+        },
+        {
+          "caller": "flask.cli:run_command",
+          "file": "flask/cli.py",
+          "line": 972
+        },
+        {
+          "caller": "flask.sansio.app:App.make_config",
+          "file": "flask/sansio/app.py",
+          "line": 493
+        }
+      ],
+      "actual_edges": [
+        {
+          "caller": "flask.app:Flask.run",
+          "target": "flask.helpers:get_debug_flag",
+          "file": "flask/app.py",
+          "line": 723,
+          "expression": "get_debug_flag",
+          "target_file": "flask/helpers.py",
+          "target_line": 28,
+          "resolution": "static"
+        },
+        {
+          "caller": "flask.cli:ScriptInfo.load_app",
+          "target": "flask.helpers:get_debug_flag",
+          "file": "flask/cli.py",
+          "line": 369,
+          "expression": "get_debug_flag",
+          "target_file": "flask/helpers.py",
+          "target_line": 28,
+          "resolution": "static"
+        },
+        {
+          "caller": "flask.cli:run_command",
+          "target": "flask.helpers:get_debug_flag",
+          "file": "flask/cli.py",
+          "line": 972,
+          "expression": "get_debug_flag",
+          "target_file": "flask/helpers.py",
+          "target_line": 28,
+          "resolution": "static"
+        },
+        {
+          "caller": "flask.sansio.app:App.make_config",
+          "target": "flask.helpers:get_debug_flag",
+          "file": "flask/sansio/app.py",
+          "line": 493,
+          "expression": "get_debug_flag",
+          "target_file": "flask/helpers.py",
+          "target_line": 28,
+          "resolution": "static"
+        }
+      ],
+      "missing": [],
+      "unexpected": [],
+      "precision": 1.0,
+      "recall": 1.0,
+      "initial_index_seconds": 0.5209,
+      "warm_index_seconds": 0.174,
+      "query_seconds": 0.0483,
+      "initial_stats": {
+        "parsed_files": 24,
+        "cache_hits": 0,
+        "cache_status": "enabled",
+        "route_builds": 1,
+        "graph_builds": 1
+      },
+      "warm_stats": {
+        "parsed_files": 0,
+        "cache_hits": 24,
+        "cache_status": "enabled",
+        "route_builds": 1,
+        "graph_builds": 1
+      },
+      "diagnostics": [],
+      "passed": true
+    },
+    {
+      "name": "fastapi-body-status",
+      "repository": "https://github.com/fastapi/fastapi",
+      "commit": "ba47d6d71b3e806900c8471f2f661781b8c43ec4",
+      "language": "python",
+      "symbol": "fastapi.utils:is_body_allowed_for_status_code",
+      "modules": 1219,
+      "expected": [
+        {
+          "caller": "fastapi.routing:get_request_handler.app",
+          "file": "fastapi/routing.py",
+          "line": 788
+        },
+        {
+          "caller": "fastapi.routing:_populate_api_route_state",
+          "file": "fastapi/routing.py",
+          "line": 1096
+        },
+        {
+          "caller": "fastapi.openapi.utils:get_openapi_path",
+          "file": "fastapi/openapi/utils.py",
+          "line": 411
+        },
+        {
+          "caller": "fastapi.exception_handlers:http_exception_handler",
+          "file": "fastapi/exception_handlers.py",
+          "line": 13
+        }
+      ],
+      "actual_edges": [
+        {
+          "caller": "fastapi.exception_handlers:http_exception_handler",
+          "target": "fastapi.utils:is_body_allowed_for_status_code",
+          "file": "fastapi/exception_handlers.py",
+          "line": 13,
+          "expression": "is_body_allowed_for_status_code",
+          "target_file": "fastapi/utils.py",
+          "target_line": 26,
+          "resolution": "static"
+        },
+        {
+          "caller": "fastapi.openapi.utils:get_openapi_path",
+          "target": "fastapi.utils:is_body_allowed_for_status_code",
+          "file": "fastapi/openapi/utils.py",
+          "line": 411,
+          "expression": "is_body_allowed_for_status_code",
+          "target_file": "fastapi/utils.py",
+          "target_line": 26,
+          "resolution": "static"
+        },
+        {
+          "caller": "fastapi.routing:get_request_handler.app",
+          "target": "fastapi.utils:is_body_allowed_for_status_code",
+          "file": "fastapi/routing.py",
+          "line": 788,
+          "expression": "is_body_allowed_for_status_code",
+          "target_file": "fastapi/utils.py",
+          "target_line": 26,
+          "resolution": "static"
+        },
+        {
+          "caller": "fastapi.routing:_populate_api_route_state",
+          "target": "fastapi.utils:is_body_allowed_for_status_code",
+          "file": "fastapi/routing.py",
+          "line": 1096,
+          "expression": "is_body_allowed_for_status_code",
+          "target_file": "fastapi/utils.py",
+          "target_line": 26,
+          "resolution": "static"
+        },
+        {
+          "caller": "fastapi.routing:_populate_api_route_state",
+          "target": "fastapi.utils:is_body_allowed_for_status_code",
+          "file": "fastapi/routing.py",
+          "line": 1157,
+          "expression": "is_body_allowed_for_status_code",
+          "target_file": "fastapi/utils.py",
+          "target_line": 26,
+          "resolution": "static"
+        }
+      ],
+      "missing": [],
+      "unexpected": [],
+      "precision": 1.0,
+      "recall": 1.0,
+      "initial_index_seconds": 8.9136,
+      "warm_index_seconds": 3.8527,
+      "query_seconds": 7.7943,
+      "initial_stats": {
+        "parsed_files": 1219,
+        "cache_hits": 0,
+        "cache_status": "enabled",
+        "route_builds": 1,
+        "graph_builds": 1
+      },
+      "warm_stats": {
+        "parsed_files": 0,
+        "cache_hits": 1219,
+        "cache_status": "enabled",
+        "route_builds": 1,
+        "graph_builds": 1
+      },
+      "diagnostics": [],
+      "passed": true
+    },
+    {
+      "name": "ts-extras-presence-assertion",
+      "repository": "https://github.com/sindresorhus/ts-extras",
+      "commit": "e3672fb72a88471f56777947bb194a769419a8e1",
+      "language": "typescript",
+      "symbol": "is-present.ts:isPresent",
+      "modules": 49,
+      "expected": [
+        {
+          "caller": "assert-present.ts:assertPresent",
+          "file": "assert-present.ts",
+          "line": 28
+        }
+      ],
+      "actual_edges": [
+        {
+          "caller": "assert-present.ts:assertPresent",
+          "target": "is-present.ts:isPresent",
+          "file": "assert-present.ts",
+          "line": 28,
+          "expression": "isPresent",
+          "target_file": "is-present.ts",
+          "target_line": 16,
+          "resolution": "typescript_checker"
+        }
+      ],
+      "missing": [],
+      "unexpected": [],
+      "precision": 1.0,
+      "recall": 1.0,
+      "initial_index_seconds": 0.6985,
+      "warm_index_seconds": 0.1233,
+      "query_seconds": 0.0002,
+      "initial_stats": {
+        "parsed_files": 49,
+        "cache_hits": 0,
+        "project_cache_hit": false,
+        "cache_status": "enabled",
+        "compiler_version": "5.9.3",
+        "graph_builds": 1,
+        "route_builds": 1
+      },
+      "warm_stats": {
+        "parsed_files": 0,
+        "cache_hits": 49,
+        "project_cache_hit": true,
+        "cache_status": "enabled",
+        "compiler_version": "5.9.3",
+        "graph_builds": 1,
+        "route_builds": 1
+      },
+      "diagnostics": [],
+      "passed": true
+    }
+  ],
+  "passed": true
+}

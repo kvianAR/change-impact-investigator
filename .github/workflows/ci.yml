@@ -33,3 +33,26 @@ jobs:
       - run: change-impact --help
       - run: python -m change_impact --help
       - run: python scripts/run_demo.py --directory "$RUNNER_TEMP/change-impact-demo"
+
+  benchmark:
+    runs-on: ubuntu-latest
+    env:
+      CHANGE_IMPACT_TYPESCRIPT_PATH: ${{ github.workspace }}/node_modules/typescript/lib/typescript.js
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: python -m pip install .
+      - run: python benchmarks/fetch.py --directory "$RUNNER_TEMP/impact-benchmark-repos"
+      - run: python benchmarks/run.py --repos-dir "$RUNNER_TEMP/impact-benchmark-repos" --output benchmark-results.json --reset-cache
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pinned-repository-benchmark
+          path: benchmark-results.json
