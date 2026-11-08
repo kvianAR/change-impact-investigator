@@ -7,6 +7,7 @@ from collections import defaultdict, deque
 from dataclasses import asdict, dataclass
 
 from .index import Call, Module, Symbol
+from .inheritance import resolve_method, resolve_super
 
 
 @dataclass(frozen=True)
@@ -63,6 +64,11 @@ def _instance_type(module: Module, scope_name: str, name: str) -> str | None:
     current: str | None = scope_name
     while current is not None:
         scope = module.scopes[current]
+        if name in scope.types:
+            root, _, rest = scope.types[name].partition(".")
+            reference = _lookup_name(module, current, root)
+            if reference:
+                return ".".join(filter(None, [reference, rest]))
         if name in scope.assignments:
             constructor = scope.constructors.get(name)
             if not constructor:
@@ -94,6 +100,10 @@ def _find_target(
         candidate = f"{module_name}:{rest}"
         if candidate in symbols:
             return candidate
+        owner, _, member = rest.rpartition(".")
+        class_id = f"{module_name}:{owner}"
+        if owner and class_id in symbols and symbols[class_id].kind == "class":
+            return resolve_method(class_id, member, index, symbols)
         module = index.get(module_name)
         if module and rest.split(".")[0] in module.imports:
             head, _, tail = rest.partition(".")
@@ -101,12 +111,18 @@ def _find_target(
             found = _find_target(redirected, index, symbols, visited)
             if found:
                 return found
+    if ":" in target:
+        owner, _, member = target.rpartition(".")
+        if owner in symbols and symbols[owner].kind == "class":
+            return resolve_method(owner, member, index, symbols)
     return None
 
 
 def _resolve(
     call: Call, module: Module, index: dict[str, Module], symbols: dict[str, Symbol]
 ) -> str | None:
+    if call.expression.startswith("super("):
+        return resolve_super(call.expression, module, call.caller or "", index, symbols)
     if call.kind == "dynamic":
         return None
     root, separator, rest = call.expression.partition(".")
@@ -117,8 +133,7 @@ def _resolve(
     while separator and current is not None:
         scope = module.scopes[current]
         if root == scope.receiver and root not in scope.assignments:
-            candidate = f"{module.name}:{scope.class_owner}.{rest}"
-            return candidate if candidate in symbols else None
+            return resolve_method(f"{module.name}:{scope.class_owner}", rest, index, symbols)
         if root in scope.bindings or root in scope.assignments:
             break
         current = scope.parent
@@ -147,6 +162,13 @@ def _relationships(index: dict[str, Module]) -> tuple[dict[str, Symbol], list[Ed
                     if _instance_type(module, call.caller or "", root)
                     else "static"
                 )
+                if call.expression.startswith("super("):
+                    resolution = "super_static"
+                elif (
+                    any(root in scope.types for scope in module.scopes.values())
+                    and resolution == "constructor_inference"
+                ):
+                    resolution = "annotation_inference"
                 edges.append(
                     Edge(
                         f"{module.name}:{call.caller or '<module>'}",

@@ -58,6 +58,7 @@ class Scope:
     class_owner: str | None = None
     receiver: str | None = None
     constructors: dict[str, str | None] = field(default_factory=dict)
+    types: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -73,6 +74,7 @@ class Module:
     content_hash: str = ""
     ast_hash: str = ""
     binding_hash: str = ""
+    class_bases: dict[str, list[str]] = field(default_factory=dict)
 
 
 class RepositoryIndex(dict[str, Module]):
@@ -149,6 +151,17 @@ def _import_target(module: str, node: ast.ImportFrom, is_package: bool) -> str:
     return ".".join([*package[:keep], *([node.module] if node.module else [])])
 
 
+def _annotation_name(node: ast.AST | None) -> str | None:
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        try:
+            node = ast.parse(node.value, mode="eval").body
+        except SyntaxError:
+            return None
+    if isinstance(node, ast.Subscript) and ast.unparse(node.value).split(".")[-1] == "Annotated":
+        node = node.slice.elts[0] if isinstance(node.slice, ast.Tuple) else node.slice
+    return ast.unparse(node) if isinstance(node, (ast.Name, ast.Attribute)) else None
+
+
 def _collect_scope(
     module: Module,
     body: list[ast.stmt],
@@ -187,6 +200,9 @@ def _collect_scope(
 
         def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
             if isinstance(node.target, ast.Name):
+                annotation = _annotation_name(node.annotation)
+                if annotation:
+                    scope.types[node.target.id] = annotation
                 constructor = (
                     ast.unparse(node.value.func)
                     if isinstance(node.value, ast.Call)
@@ -370,9 +386,18 @@ def _build_index(root: Path, sources: dict[str, str] | None, cache) -> Repositor
                 )
                 parent = enclosing.parent if symbol_kind == "method" else previous
                 scope = _collect_scope(module, node.body, parent, kind, qualname, is_package)
+                if kind == "class":
+                    module.class_bases[qualname] = [ast.unparse(base) for base in node.bases]
                 if kind == "function":
                     arguments = [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
                     scope.bindings.update(argument.arg for argument in arguments)
+                    scope.types.update(
+                        {
+                            argument.arg: annotation
+                            for argument in arguments
+                            if (annotation := _annotation_name(argument.annotation))
+                        }
+                    )
                     scope.bindings.update(
                         argument.arg for argument in (node.args.vararg, node.args.kwarg) if argument
                     )
