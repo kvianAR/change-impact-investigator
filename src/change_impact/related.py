@@ -264,12 +264,14 @@ def discover_route_map(index: dict[str, Module]) -> tuple[list[dict], list[dict]
 
 
 def _all_route_map(index):
+    from .django import discover_django_routes
     from .factories import factory_routes
     from .flask import discover_flask_routes
 
     routes, diagnostics = _discover_route_map(index)
     factory_found, factory_warnings = factory_routes(index, _discover_route_map)
     flask_found, flask_warnings = discover_flask_routes(index)
+    django_found, django_warnings = discover_django_routes(index)
     mounted = {(route["file"], route["line"]) for route in factory_found}
     registrations = {
         (item["file"], item["line"])
@@ -285,7 +287,10 @@ def _all_route_map(index):
             and (item["file"], item["line"]) in registrations
         )
     ]
-    return routes + factory_found + flask_found, diagnostics + factory_warnings + flask_warnings
+    return (
+        routes + factory_found + flask_found + django_found,
+        diagnostics + factory_warnings + flask_warnings + django_warnings,
+    )
 
 
 def discover_routes(index: dict[str, Module]) -> list[dict]:
@@ -446,7 +451,11 @@ def find_related_tests(index: dict[str, Module], query: str, depth: int = 8) -> 
                 if call.caller != symbol.qualname or (request := _http_call(call)) is None:
                     continue
                 for route in routes:
-                    if request[0] == route["method"] and _path_matches(route["path"], request[1]):
+                    if (
+                        route["method"] in {request[0], "ANY"}
+                        and not route.get("path_is_regex")
+                        and _path_matches(route["path"], request[1])
+                    ):
                         endpoint_calls.append(
                             {
                                 "file": call.file,

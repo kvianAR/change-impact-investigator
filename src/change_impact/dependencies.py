@@ -87,6 +87,21 @@ def dependency_edges(index, symbols):
         ]
         collect(module, caller, expressions, module.scopes[symbol.qualname].parent or "")
     for route in discover_routes(index):
+        dispatched = route.get("dispatch_target")
+        if dispatched and dispatched != route["symbol"]:
+            definition = symbols[dispatched]
+            edges.append(
+                Edge(
+                    route["symbol"],
+                    dispatched,
+                    route["file"],
+                    route["line"],
+                    "<django HTTP dispatch>",
+                    definition.file,
+                    definition.line,
+                    "framework_dispatch",
+                )
+            )
         for evidence in route.get("registration_evidence", []):
             module = by_file[evidence["file"]]
             calls = [
