@@ -29,6 +29,7 @@ def main() -> None:
             "compare",
             "summarize",
             "index",
+            "models",
         ],
     )
     parser.add_argument("--repo", type=Path, default=Path.cwd())
@@ -39,13 +40,22 @@ def main() -> None:
     parser.add_argument("--base", default="HEAD")
     parser.add_argument("--depth", type=int, default=8)
     parser.add_argument("--language", choices=["python", "typescript", "auto"], default="python")
+    parser.add_argument("--port", type=int, default=8765, help="Loopback port for the Models panel")
+    parser.add_argument(
+        "--no-browser", action="store_true", help="Start the Models panel without opening a browser"
+    )
     args = parser.parse_args()
     if args.command in {"trace-callers", "related-tests", "baseline"} and not args.symbol:
         parser.error("--symbol is required for this command")
     if args.command == "compare" and not args.baseline_id:
         parser.error("--baseline-id is required for comparison")
     try:
-        if args.command == "index":
+        if args.command == "models":
+            from .panel import serve_models
+
+            serve_models(args.port, not args.no_browser)
+            return
+        elif args.command == "index":
             result = index_repository(args.repo, args.language)
         elif args.command == "trace-callers":
             result = trace_callers(load_index(args.repo, args.language), args.symbol, args.depth)

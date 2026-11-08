@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="panel-token" content="__PANEL_TOKEN__">
+  <title>Models · Change Impact Investigator</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/style.css">
+  <script src="/assets/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to models</a>
+  <aside class="sidebar" aria-label="Workspace navigation">
+    <a class="brand" href="/" aria-label="Change Impact Investigator home">
+      <span class="brand-mark" aria-hidden="true">ci</span>
+      <span>Change Impact<span class="brand-sub">INVESTIGATOR</span></span>
+    </a>
+    <div class="nav-label">WORKSPACE</div>
+    <a class="nav-item selected" href="#main" aria-current="page">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg>
+      Models
+    </a>
+    <a class="nav-item" href="https://github.com/kvianAR/change-impact-investigator/blob/main/docs/USAGE.md" target="_blank" rel="noopener noreferrer">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h10l4 4v12H5zM14 4v5h5M8 12h8M8 16h6"/></svg>
+      Guide
+    </a>
+    <div class="sidebar-bottom"><span class="status-dot" aria-hidden="true"></span> Local workspace<span class="sidebar-hint">Your connections, on this device.</span></div>
+  </aside>
+
+  <main id="main" class="workspace">
+    <header class="topbar"><span>Settings <span class="slash">/</span> <strong>Models</strong></span><span class="private-label"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg> Private configuration</span></header>
+    <div class="page-heading"><div><p class="eyebrow">AI PREFERENCES</p><h1>Models</h1><p class="subtitle">Bring your own provider. Choose the model that works for you.</p></div><div class="heading-actions"><button class="button secondary" id="connections-button">Connections</button><button class="button primary" id="add-model"><span aria-hidden="true">+</span> Add model</button></div></div>
+
+    <div class="overview-grid">
+      <section class="active-card" aria-labelledby="active-heading"><div class="active-eyebrow"><span class="live-dot" aria-hidden="true"></span><h2 id="active-heading">ACTIVE MODEL</h2><span id="active-badge" class="dark-badge">Not set</span></div><h3 id="active-name">Choose your first model</h3><p id="active-description">Your active model becomes the default for CLI and MCP summaries.</p><div class="active-bottom"><span id="active-provider" class="active-provider">Cloud or local. Your choice.</span><button id="test-active" class="button dark-button" disabled>Test model</button></div><p class="test-note">Testing sends a short prompt to the selected provider.</p></section>
+      <section class="setup-card" aria-labelledby="setup-heading"><span class="section-kicker">SET UP ONCE</span><h2 id="setup-heading">A model for every workflow.</h2><ol><li><span>1</span><div><strong>Pick a provider</strong><p>OpenRouter, OpenAI, Ollama, or your own API.</p></div></li><li><span>2</span><div><strong>Add your model and key</strong><p>Browse the catalog or enter any model ID.</p></div></li><li><span>3</span><div><strong>Make it active</strong><p>Switch the default whenever you need.</p></div></li></ol></section>
+    </div>
+
+    <div id="storage-notice" class="notice" hidden>Secure key storage is unavailable. Unlock your system keychain to save API keys. Environment keys and local models can still be used.</div>
+    <section class="saved-section" aria-labelledby="saved-heading"><div class="section-toolbar"><h2 id="saved-heading">Your models <span id="model-count" class="count">0</span></h2><label class="search-field"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg><input id="model-search" type="search" aria-label="Search saved models" placeholder="Search models"></label></div><div id="provider-filters" class="filters" aria-label="Filter by provider"></div><div id="models-list" class="models-list" aria-live="polite"><p class="loading-state">Loading your models…</p></div></section>
+
+    <section class="connections-section" aria-labelledby="connections-heading"><div class="section-toolbar"><div><h2 id="connections-heading">Provider connections</h2><p class="section-description">Keys are stored in your system keychain and shared across models from the same provider.</p></div></div><div id="provider-cards" class="provider-grid"></div></section>
+    <footer class="page-footer"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6zM8 12l3 3 5-6"/></svg> Saved keys stay in your system keychain.</span><span>Change Impact Investigator · Models</span></footer>
+  </main>
+
+  <dialog id="model-dialog" class="settings-dialog" aria-labelledby="model-dialog-title">
+    <form id="model-form">
+      <div class="dialog-header"><div><p class="eyebrow">MODEL PREFERENCES</p><h2 id="model-dialog-title">Add a model</h2></div><button type="button" class="icon-button close-dialog" aria-label="Close model settings">×</button></div>
+      <div class="dialog-body">
+        <input id="profile-id" type="hidden">
+        <label class="field">Provider<select id="model-provider"></select></label>
+        <div class="field"><label for="model-id">Model ID <span class="required">Required</span></label><div class="input-action"><input id="model-id" list="model-catalog" required maxlength="512" placeholder="vendor/model-name" autocomplete="off"><button id="load-catalog" type="button" class="button secondary compact">Browse models</button></div><datalist id="model-catalog"></datalist><p id="catalog-note" class="field-hint">Enter a model ID, or load suggestions from your provider.</p></div>
+        <div class="field"><div class="label-row"><label for="model-name">Display name</label><span class="optional">Optional</span></div><input id="model-name" maxlength="100" placeholder="e.g. Daily investigator"></div>
+        <div id="model-endpoint-field" class="field" hidden><label for="model-endpoint">API base URL</label><input id="model-endpoint" type="url" placeholder="https://api.example.com/v1"><p class="field-hint">HTTPS for remote APIs. HTTP is supported for localhost.</p></div>
+        <div id="model-key-field" class="key-section"><div class="field"><label for="model-key">API key <span id="model-key-status" class="key-status">Not saved</span></label><div class="secret-input"><input id="model-key" type="password" maxlength="8192" autocomplete="new-password" spellcheck="false" placeholder="Paste your API key"><button type="button" class="reveal-key" data-input="model-key" aria-pressed="false">Show</button></div><p id="model-key-hint" class="field-hint">Saved securely in your system keychain. Never sent back to this page.</p></div></div>
+        <label class="active-option"><input id="make-active" type="checkbox"><span><strong>Make this my active model</strong><span>Use it by default for CLI and MCP summaries.</span></span></label>
+        <details class="advanced-settings"><summary>Advanced settings</summary><label class="field">Output token limit<input id="model-tokens" type="number" min="64" max="8192" step="1" value="800" required></label></details>
+        <p id="model-error" class="form-error" role="alert" hidden></p>
+      </div>
+      <div class="dialog-footer"><button type="button" class="button secondary close-dialog">Cancel</button><button type="submit" class="button primary" id="save-model">Save model</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="connection-dialog" class="settings-dialog connection-dialog" aria-labelledby="connection-title"><form id="connection-form"><div class="dialog-header"><div><p class="eyebrow">PROVIDER SETTINGS</p><h2 id="connection-title">Connection</h2></div><button type="button" class="icon-button close-dialog" aria-label="Close connection settings">×</button></div><div class="dialog-body"><label class="field">Provider<select id="connection-provider"></select></label><div id="connection-endpoint-field" class="field" hidden><label for="connection-endpoint">API base URL</label><input id="connection-endpoint" type="url" placeholder="https://api.example.com/v1"><p class="field-hint">HTTPS for remote APIs, or HTTP on localhost.</p></div><div id="connection-key-field" class="field"><label for="connection-key">API key <span id="connection-key-status" class="key-status">Not saved</span></label><div class="secret-input"><input id="connection-key" type="password" maxlength="8192" autocomplete="new-password" spellcheck="false" placeholder="Enter a key to save or replace"><button type="button" class="reveal-key" data-input="connection-key" aria-pressed="false">Show</button></div><p class="field-hint">An empty field preserves your saved key. Changes apply to all models using this provider.</p></div><p id="local-connection-note" class="local-note" hidden>Ollama runs locally. Start its server and download a model before testing.</p><button id="remove-key" type="button" class="text-button danger" disabled>Remove saved key</button><p id="connection-error" class="form-error" role="alert" hidden></p></div><div class="dialog-footer"><button type="button" class="button secondary close-dialog">Cancel</button><button type="submit" class="button primary" id="save-connection">Save connection</button></div></form></dialog>
+
+  <dialog id="confirm-dialog" class="confirm-dialog" aria-labelledby="confirm-title"><h2 id="confirm-title">Remove model?</h2><p id="confirm-description"></p><div class="dialog-footer"><button id="confirm-cancel" class="button secondary">Cancel</button><button id="confirm-accept" class="button danger-button">Remove</button></div></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>
