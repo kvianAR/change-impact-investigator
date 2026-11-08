@@ -7,3 +7,5 @@ __pycache__/
 .impact-cache/
 dist/
 build/
+.env*
+.ruff_cache/

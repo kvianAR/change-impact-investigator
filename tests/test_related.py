@@ -21,4 +21,7 @@ def test_fastapi_routes_and_related_tests(tmp_path: Path) -> None:
     index = build_index(tmp_path)
     assert [(r["method"], r["path"]) for r in discover_routes(index)] == [("POST", "/orders")]
     related = find_related_tests(index, "validators:validate")
-    assert {item["test"]["name"] if "name" in item["test"] else item["test"]["qualname"] for item in related} == {"test_validator", "test_endpoint"}
+    assert {
+        item["test"]["name"] if "name" in item["test"] else item["test"]["qualname"]
+        for item in related
+    } == {"test_validator", "test_endpoint"}

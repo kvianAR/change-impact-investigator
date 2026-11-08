@@ -6,17 +6,29 @@ import argparse
 import json
 from pathlib import Path
 
-from .impact import inspect_change_impact
 from .ai import summarize_impact
 from .baseline import compare_impact, create_impact_baseline
+from .impact import inspect_change_impact
 from .index import build_index
 from .related import find_related_tests
 from .trace import trace_callers
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Investigate Python change impact with source evidence")
-    parser.add_argument("command", choices=["trace-callers", "related-tests", "inspect-change-impact", "baseline", "compare", "summarize"])
+    parser = argparse.ArgumentParser(
+        description="Investigate Python change impact with source evidence"
+    )
+    parser.add_argument(
+        "command",
+        choices=[
+            "trace-callers",
+            "related-tests",
+            "inspect-change-impact",
+            "baseline",
+            "compare",
+            "summarize",
+        ],
+    )
     parser.add_argument("--repo", type=Path, default=Path.cwd())
     parser.add_argument("--symbol")
     parser.add_argument("--baseline-id")
@@ -41,7 +53,11 @@ def main() -> None:
         elif args.command == "compare":
             result = compare_impact(args.repo, args.baseline_id)
         elif args.command == "summarize":
-            result = summarize_impact(inspect_change_impact(args.repo, args.symbol, args.base, args.depth), args.provider, args.model)
+            result = summarize_impact(
+                inspect_change_impact(args.repo, args.symbol, args.base, args.depth),
+                args.provider,
+                args.model,
+            )
         else:
             result = inspect_change_impact(args.repo, args.symbol, args.base, args.depth)
     except (ValueError, OSError, RuntimeError) as exc:

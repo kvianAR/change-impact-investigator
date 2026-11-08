@@ -37,14 +37,26 @@ def _lookup_name(module: Module, scope_name: str, name: str) -> str | None:
             continue
         if name in scope.assignments:
             return None
+        if name in scope.bindings or (name in scope.imports and name in scope.definitions):
+            return None
         if name in scope.imports:
             return scope.imports[name]
         if name in scope.definitions:
             return scope.definitions[name]
-        if name in scope.bindings:
-            return None
         current = scope.parent
     return None
+
+
+def _runtime_binding(module: Module, scope_name: str, name: str) -> bool:
+    current: str | None = scope_name
+    while current is not None:
+        scope = module.scopes[current]
+        if name in scope.bindings or name in scope.assignments:
+            return True
+        if name in scope.imports or name in scope.definitions:
+            return False
+        current = scope.parent
+    return False
 
 
 def _instance_type(module: Module, scope_name: str, name: str) -> str | None:
@@ -64,7 +76,12 @@ def _instance_type(module: Module, scope_name: str, name: str) -> str | None:
     return None
 
 
-def _find_target(target: str, index: dict[str, Module], symbols: dict[str, Symbol], visited: set[str] | None = None) -> str | None:
+def _find_target(
+    target: str,
+    index: dict[str, Module],
+    symbols: dict[str, Symbol],
+    visited: set[str] | None = None,
+) -> str | None:
     if target in symbols:
         return target
     visited = visited or set()
@@ -87,7 +104,9 @@ def _find_target(target: str, index: dict[str, Module], symbols: dict[str, Symbo
     return None
 
 
-def _resolve(call: Call, module: Module, index: dict[str, Module], symbols: dict[str, Symbol]) -> str | None:
+def _resolve(
+    call: Call, module: Module, index: dict[str, Module], symbols: dict[str, Symbol]
+) -> str | None:
     if call.kind == "dynamic":
         return None
     root, separator, rest = call.expression.partition(".")
@@ -123,26 +142,69 @@ def relationships(index: dict[str, Module]) -> tuple[dict[str, Symbol], list[Edg
             if target:
                 definition = symbols[target]
                 root = call.expression.split(".", 1)[0]
-                resolution = "constructor_inference" if _instance_type(module, call.caller or "", root) else "static"
-                edges.append(Edge(f"{module.name}:{call.caller or '<module>'}", target, call.file, call.line, call.expression, definition.file, definition.line, resolution))
+                resolution = (
+                    "constructor_inference"
+                    if _instance_type(module, call.caller or "", root)
+                    else "static"
+                )
+                edges.append(
+                    Edge(
+                        f"{module.name}:{call.caller or '<module>'}",
+                        target,
+                        call.file,
+                        call.line,
+                        call.expression,
+                        definition.file,
+                        definition.line,
+                        resolution,
+                    )
+                )
                 continue
             root = call.expression.split(".", 1)[0]
-            external = _lookup_name(module, call.caller or "", root) or _instance_type(module, call.caller or "", root)
-            internal = bool(external) and any(name and (external == name or external.startswith(name + ".") or external.startswith(name + ":")) for name in index)
-            if call.kind == "dynamic" or root in call.shadowed or internal or (external is None and root not in vars(builtins)):
-                unresolved.append({"file": call.file, "line": call.line, "caller": call.caller, "expression": call.expression, "reason": "runtime-selected or unresolved call target"})
+            external = _lookup_name(module, call.caller or "", root) or _instance_type(
+                module, call.caller or "", root
+            )
+            internal = bool(external) and any(
+                name
+                and (
+                    external == name
+                    or external.startswith(name + ".")
+                    or external.startswith(name + ":")
+                )
+                for name in index
+            )
+            if (
+                call.kind == "dynamic"
+                or root in call.shadowed
+                or internal
+                or (external is None and _runtime_binding(module, call.caller or "", root))
+                or (external is None and root not in vars(builtins))
+            ):
+                unresolved.append(
+                    {
+                        "file": call.file,
+                        "line": call.line,
+                        "caller": call.caller,
+                        "expression": call.expression,
+                        "reason": "runtime-selected or unresolved call target",
+                    }
+                )
     return symbols, edges, unresolved
 
 
 def select_symbol(symbols: dict[str, Symbol], query: str) -> Symbol:
     if query in symbols:
         return symbols[query]
-    matches = [symbol for symbol in symbols.values() if symbol.name == query or symbol.qualname == query]
+    matches = [
+        symbol for symbol in symbols.values() if symbol.name == query or symbol.qualname == query
+    ]
     if len(matches) == 1:
         return matches[0]
     if not matches:
         raise ValueError(f"Symbol not found: {query}")
-    raise ValueError(f"Ambiguous symbol {query!r}; use one of: {', '.join(sorted(symbol.id for symbol in matches))}")
+    raise ValueError(
+        f"Ambiguous symbol {query!r}; use one of: {', '.join(sorted(symbol.id for symbol in matches))}"
+    )
 
 
 def trace_callers(index: dict[str, Module], query: str, depth: int = 3) -> dict:
@@ -171,9 +233,20 @@ def trace_callers(index: dict[str, Module], query: str, depth: int = 3) -> dict:
             if edge.caller not in visited:
                 frontier.append((edge.caller, new_path, visited | {edge.caller}))
     dotted = f"{target.module}.{target.qualname}"
-    imports = [item for module in index.values() for item in module.import_evidence if dotted.startswith(item["target"] + ".") or _find_target(item["target"], index, symbols) == target.id]
+    imports = [
+        item
+        for module in index.values()
+        for item in module.import_evidence
+        if dotted.startswith(item["target"] + ".")
+        or _find_target(item["target"], index, symbols) == target.id
+    ]
     return {
-        "symbol": asdict(target), "paths": paths, "imports": imports,
+        "symbol": asdict(target),
+        "paths": paths,
+        "imports": imports,
         "unresolved_dynamic_calls": unresolved,
-        "diagnostics": getattr(index, "diagnostics", []), "truncated": truncated, "depth": depth,
+        "unresolved_scope": "repository",
+        "diagnostics": getattr(index, "diagnostics", []),
+        "truncated": truncated,
+        "depth": depth,
     }

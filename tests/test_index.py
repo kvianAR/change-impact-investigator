@@ -13,8 +13,13 @@ def test_index_records_aliases_scopes_and_lines(tmp_path: Path) -> None:
     )
     index = build_index(tmp_path)
     assert index["api"].imports["validate"] == "helpers.check"
-    assert [(s.qualname, s.line) for s in index["api"].symbols] == [("Service", 3), ("Service.run", 4)]
-    assert [(c.caller, c.expression, c.line) for c in index["api"].calls] == [("Service.run", "validate", 5)]
+    assert [(s.qualname, s.line) for s in index["api"].symbols] == [
+        ("Service", 3),
+        ("Service.run", 4),
+    ]
+    assert [(c.caller, c.expression, c.line) for c in index["api"].calls] == [
+        ("Service.run", "validate", 5)
+    ]
 
 
 def test_src_layout_and_package_relative_import(tmp_path: Path) -> None:

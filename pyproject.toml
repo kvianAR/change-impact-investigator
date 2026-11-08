@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -14,7 +14,7 @@ dependencies = []
 
 [project.optional-dependencies]
 mcp = ["mcp>=1.0,<2"]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "ruff>=0.9"]
 demo = ["fastapi>=0.115,<1", "httpx>=0.27,<1"]
 
 [project.scripts]
@@ -23,3 +23,22 @@ change-impact-mcp = "change_impact.server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.uv]
+cache-keys = [
+    { file = "pyproject.toml" },
+    { file = "src/**/*.py" },
+    { file = "README.md" },
+    { file = "LICENSE" },
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/test_mcp.py" = ["E402"]
+"examples/shop/test_shop.py" = ["E402"]

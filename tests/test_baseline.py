@@ -1,6 +1,8 @@
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from change_impact.baseline import compare_impact, create_impact_baseline
 
 
@@ -26,7 +28,32 @@ def test_baseline_ignores_line_movement_and_handles_deleted_symbol(tmp_path: Pat
     path.write_text("\n\ndef check(): pass\ndef run():\n    check()\n")
     shifted = compare_impact(tmp_path, baseline["baseline_id"])
     assert shifted["changes"]["callers"] == {"added": [], "removed": []}
+    assert shifted["symbol_source_changed"] is False
+    assert shifted["source_file_changed"] is True
     path.write_text("def run():\n    check()\n")
     deleted = compare_impact(tmp_path, baseline["baseline_id"])
     assert deleted["symbol_removed"]
     assert deleted["changes"]["callers"]["removed"][0]["line"] == 3
+
+
+def test_body_change_is_reported_when_connections_are_unchanged(tmp_path: Path) -> None:
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
+    path = tmp_path / "a.py"
+    path.write_text("def check(value):\n    return value > 0\n")
+    baseline = create_impact_baseline(tmp_path, "a:check")
+    path.write_text("def check(value):\n    return value >= 0\n")
+    result = compare_impact(tmp_path, baseline["baseline_id"])
+    assert result["symbol_source_changed"] is True
+    assert all(
+        not change["added"] and not change["removed"] for change in result["changes"].values()
+    )
+
+
+def test_parse_failure_is_not_treated_as_symbol_removal(tmp_path: Path) -> None:
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
+    path = tmp_path / "a.py"
+    path.write_text("def check(): pass\n")
+    baseline = create_impact_baseline(tmp_path, "a:check")
+    path.write_text("def check(\n")
+    with pytest.raises(ValueError, match="could not be indexed"):
+        compare_impact(tmp_path, baseline["baseline_id"])

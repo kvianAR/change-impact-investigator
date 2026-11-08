@@ -1,0 +1,97 @@
+# Usage guide
+
+## Install from GitHub
+
+```sh
+git clone https://github.com/kvianAR/change-impact-investigator.git
+cd change-impact-investigator
+uv sync --all-extras --no-editable
+source .venv/bin/activate
+change-impact --help
+```
+
+The activation command above is for macOS and Linux. A Python 3.11+ virtual environment with `python -m pip install '.[dev,mcp,demo]'` also works.
+
+## Investigate one function
+
+```sh
+change-impact trace-callers --repo /absolute/repository --symbol package.validators:validate_order
+change-impact related-tests --repo /absolute/repository --symbol package.validators:validate_order
+change-impact inspect-change-impact --repo /absolute/repository --symbol package.validators:validate_order
+```
+
+A unique short name also works. Ambiguous names return the qualified choices. Each call edge contains its call-site file/line and target definition file/line. Imported aliases include separate import evidence.
+
+## Investigate the current diff
+
+```sh
+change-impact inspect-change-impact --repo /absolute/repository
+change-impact inspect-change-impact --repo /absolute/repository --base main --depth 12
+```
+
+The default base is HEAD. Both staged and unstaged tracked edits are compared with that revision. Untracked Python files are included. A repository without its first commit is supported. Non-Python changes appear separately. File deletions retain evidence from the base revision. Source parse failures appear in diagnostics.
+
+Caller traversal defaults to eight levels for impact reports and stops at 500 paths per symbol. Set depth from 1 through 32. Check truncation flags before treating a result as complete.
+
+## Compare before and after
+
+```sh
+change-impact baseline --repo /absolute/repository --symbol package.validators:validate_order
+# Edit code after saving the returned identifier.
+change-impact compare --repo /absolute/repository --baseline-id YOUR_BASELINE_ID
+```
+
+`symbol_source_changed` compares the parsed symbol structure, so whitespace and line movement preserve identity. `source_file_changed` compares the whole file. Connection additions and removals include source evidence. Renaming or moving a symbol to another module changes its identity. Older snapshots without source fingerprints return null for unavailable source comparisons.
+
+Snapshots contain repository identifiers and evidence. Keep `.impact-cache/` out of version control. The analyzer excludes that directory from its own change reports.
+
+## Local AI
+
+Start Ollama and make the chosen model available before running a summary. Once downloaded, local inference works without internet access.
+
+```sh
+ollama list
+change-impact summarize --repo /absolute/repository --symbol validate_order --provider ollama --model qwen3.5:2b-q4_K_M
+```
+
+Local requests go to `http://127.0.0.1:11434/api/generate`. The project does not bundle model weights. Specify a model suited to the available memory.
+
+## Online AI
+
+Set `OPENAI_API_KEY` in the launching process environment, then select the provider explicitly.
+
+```sh
+change-impact summarize --repo /absolute/repository --symbol validate_order --provider openai --model gpt-4.1-mini
+```
+
+This sends compact report evidence to the OpenAI Responses API. Provider pricing applies. Summaries include their provider, model, scope omissions, and the full original evidence report. Model-generated descriptions can be checked against the source references. Core analysis works with no API key.
+
+## Connect an MCP client
+
+Configure a stdio server using the Python interpreter from the installed environment.
+
+```json
+{
+  "mcpServers": {
+    "change-impact": {
+      "command": "/absolute/path/to/change-impact-investigator/.venv/bin/python",
+      "args": ["-m", "change_impact.server"]
+    }
+  }
+}
+```
+
+Restart or reconnect the MCP client after changing its configuration. Supply the absolute repository path in tool requests. Online summaries also require the server process to inherit `OPENAI_API_KEY`.
+
+The six tools are `trace_callers`, `inspect_change_impact`, `find_related_tests`, `create_impact_baseline`, `compare_impact`, and `summarize_impact`.
+
+## Run the demo and checks
+
+```sh
+python scripts/run_demo.py
+python -m pytest -q
+ruff check .
+ruff format --check .
+```
+
+The demo creates a separate Git repository, edits the shared validator, then adds `/orders/express`. Its report contains two initially affected routes, four related tests, a source-change comparison, and the new route connection. The original examples remain available for repeated inspection.

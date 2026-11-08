@@ -6,14 +6,17 @@ import json
 import uuid
 from pathlib import Path
 
+from .git import repository_root
 from .impact import inspect_change_impact
 from .index import build_index
 from .trace import relationships
-from .git import repository_root
 
 
 def _cache(root: Path) -> Path:
-    return root.resolve() / ".impact-cache"
+    cache = root.resolve() / ".impact-cache"
+    if cache.is_symlink():
+        raise ValueError("Baseline cache must be a directory inside the repository")
+    return cache
 
 
 def create_impact_baseline(root: Path, symbol: str) -> dict:
@@ -23,7 +26,8 @@ def create_impact_baseline(root: Path, symbol: str) -> dict:
     cache = _cache(root)
     cache.mkdir(exist_ok=True)
     path = cache / f"{baseline_id}.json"
-    path.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    with path.open("x", encoding="utf-8") as output:
+        json.dump(report, output, indent=2)
     return {"baseline_id": baseline_id, "symbol": report["impacts"][0]["symbol"], "file": str(path)}
 
 
@@ -32,11 +36,27 @@ def _connections(report: dict) -> dict[str, dict[tuple, dict]]:
         raise ValueError("Comparison requires one selected symbol")
     impact = report["impacts"][0]
     return {
-        "callers": {(edge["caller"], edge["target"], edge["expression"]): edge for path in impact["caller_paths"] for edge in path},
-        "routes": {(route["method"], route["path"], route["symbol"]): route for route in impact["affected_routes"]},
-        "tests": {(item["test"]["module"], item["test"]["qualname"]): item for item in impact["related_tests"]},
-        "imports": {(item["file"], item["scope"] or "", item["alias"], item["target"]): item for item in impact.get("imports", [])},
-        "dynamic_calls": {(item["file"], item["caller"] or "", item["expression"]): item for item in report["unresolved_dynamic_calls"]},
+        "callers": {
+            (edge["caller"], edge["target"], edge["expression"]): edge
+            for path in impact["caller_paths"]
+            for edge in path
+        },
+        "routes": {
+            (route["method"], route["path"], route["symbol"]): route
+            for route in impact["affected_routes"]
+        },
+        "tests": {
+            (item["test"]["module"], item["test"]["qualname"]): item
+            for item in impact["related_tests"]
+        },
+        "imports": {
+            (item["file"], item["scope"] or "", item["alias"], item["target"]): item
+            for item in impact.get("imports", [])
+        },
+        "dynamic_calls": {
+            (item["file"], item["caller"] or "", item["expression"]): item
+            for item in report["unresolved_dynamic_calls"]
+        },
     }
 
 
@@ -50,17 +70,45 @@ def compare_impact(root: Path, baseline_id: str) -> dict:
         raise ValueError("Baseline belongs to another repository")
     symbol = before["impacts"][0]["symbol"]
     symbol_id = f"{symbol['module']}:{symbol['qualname']}"
-    symbols, _, _ = relationships(build_index(root))
+    index = build_index(root)
+    symbols, _, _ = relationships(index)
     removed = symbol_id not in symbols
+    failed_files = {item["file"] for item in index.diagnostics}
+    failed_files.update(item["other_file"] for item in index.diagnostics if item.get("other_file"))
+    if removed and symbol["file"] in failed_files:
+        raise ValueError(f"Cannot compare symbol because {symbol['file']} could not be indexed")
     current = inspect_change_impact(root, None if removed else symbol_id)
     if removed:
-        current["impacts"] = [{"symbol": symbol, "caller_paths": [], "affected_routes": [], "related_tests": []}]
+        current["impacts"] = [
+            {"symbol": symbol, "caller_paths": [], "affected_routes": [], "related_tests": []}
+        ]
     older, newer = _connections(before), _connections(current)
     changes = {
         name: {
             "added": [newer[name][key] for key in sorted(newer[name].keys() - older[name].keys())],
-            "removed": [older[name][key] for key in sorted(older[name].keys() - newer[name].keys())],
+            "removed": [
+                older[name][key] for key in sorted(older[name].keys() - newer[name].keys())
+            ],
         }
         for name in older
     }
-    return {"baseline_id": baseline_id, "symbol": current["impacts"][0]["symbol"], "symbol_removed": removed, "changes": changes, "current": current}
+    current_symbol = current["impacts"][0]["symbol"]
+    old_fingerprint = symbol.get("fingerprint")
+    new_fingerprint = current_symbol.get("fingerprint")
+    old_file_hash = before.get("source_hashes", {}).get(symbol["file"])
+    new_file_hash = current.get("source_hashes", {}).get(current_symbol["file"])
+    return {
+        "baseline_id": baseline_id,
+        "symbol": current["impacts"][0]["symbol"],
+        "symbol_removed": removed,
+        "symbol_source_changed": True
+        if removed
+        else (old_fingerprint != new_fingerprint if old_fingerprint and new_fingerprint else None),
+        "source_file_changed": True
+        if removed
+        else (old_file_hash != new_file_hash if old_file_hash and new_file_hash else None),
+        "location_changed": (symbol["file"], symbol["line"])
+        != (current_symbol["file"], current_symbol["line"]),
+        "changes": changes,
+        "current": current,
+    }

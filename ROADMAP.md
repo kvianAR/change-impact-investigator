@@ -18,14 +18,6 @@ The first three steps were pushed individually. Subsequent work follows one comm
 4. Expose the new capabilities through CLI and MCP.
 5. Run round-end regression and provider integration checks.
 
-## Future rounds
-
-- Before/after snapshots and graph comparison.
-- Better Python name resolution, framework adapters, and incremental indexing.
-- Benchmarks against labeled repositories, then TypeScript support.
-
-Static analysis cannot prove all runtime behavior. Reports must separate resolved links from candidates and unresolved dynamic calls.
-
 ## Round 3 — completed
 
 1. Resolve lexical scopes, local imports, re-exports, methods, and constructor-created instances.
@@ -34,10 +26,17 @@ Static analysis cannot prove all runtime behavior. Reports must separate resolve
 4. Add an executable FastAPI demo, MCP stdio integration test, and GitHub CI.
 5. Run thirty regression and runtime demo tests before pushing the round.
 
-## Round 4 — final Python release scope
+## Round 4 — completed
 
 1. Harden FastAPI router registration and test matching.
 2. Link pytest fixtures to impacted tests.
 3. Bound AI summary context and improve provider error handling.
 4. Package the usage guide, repeatable demo, and release checks.
 5. Run full round-end verification and publish the completed Python release.
+
+## Beyond version 0.1
+
+- Persistent incremental indexing and large-repository accuracy benchmarks.
+- More type and inheritance resolution, framework adapters, and TypeScript support.
+
+Static analysis cannot prove all runtime behavior. Reports separate static links, candidates, diagnostics, and unresolved dynamic calls.

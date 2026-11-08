@@ -12,8 +12,12 @@ def test_diff_maps_changed_validator_to_route_and_test(tmp_path: Path) -> None:
     git("config", "user.email", "test@example.com")
     git("config", "user.name", "Test")
     (tmp_path / "validators.py").write_text("def validate(value):\n    return bool(value)\n")
-    (tmp_path / "api.py").write_text("from fastapi import FastAPI\nfrom validators import validate\napp = FastAPI()\n@app.post('/orders')\ndef route(value):\n    return validate(value)\n")
-    (tmp_path / "test_validators.py").write_text("from validators import validate\ndef test_validate():\n    assert validate('x')\n")
+    (tmp_path / "api.py").write_text(
+        "from fastapi import FastAPI\nfrom validators import validate\napp = FastAPI()\n@app.post('/orders')\ndef route(value):\n    return validate(value)\n"
+    )
+    (tmp_path / "test_validators.py").write_text(
+        "from validators import validate\ndef test_validate():\n    assert validate('x')\n"
+    )
     git("add", ".")
     git("commit", "-m", "base")
     (tmp_path / "validators.py").write_text("def validate(value):\n    return value is not None\n")
