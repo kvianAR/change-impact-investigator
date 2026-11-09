@@ -1,0 +1,93 @@
+1
+00:00:00,000 --> 00:00:04,000
+Ek shared function badalne se kahan-kahan asar padega?
+
+2
+00:00:04,000 --> 00:00:08,000
+Is demo mein actual CLI results se poora workflow dekho.
+
+3
+00:00:08,000 --> 00:00:13,000
+Repository kholo aur jis function ko badalna hai, uska symbol chuno.
+
+4
+00:00:13,000 --> 00:00:18,000
+Yahan validate_order ek se sau tak ki quantity accept karta hai.
+
+5
+00:00:18,000 --> 00:00:24,000
+trace-callers se dekho ki kaunse functions is validator ko call karte hain.
+
+6
+00:00:24,000 --> 00:00:30,000
+Har connection ke saath source file aur line reference milta hai.
+
+7
+00:00:30,000 --> 00:00:36,000
+inspect-change-impact se connected API endpoints bhi milte hain.
+
+8
+00:00:36,000 --> 00:00:43,000
+Is validator ka asar orders aur orders preview, dono endpoints tak pahunch sakta
+hai.
+
+9
+00:00:43,000 --> 00:00:48,000
+related-tests se testing ki focused checklist banao.
+
+10
+00:00:48,000 --> 00:00:54,000
+Yahan chaar tests mile. HTTP path matches ko candidate label diya gaya hai.
+
+11
+00:00:54,000 --> 00:00:59,000
+Code badalne se pehle baseline save karo.
+
+12
+00:00:59,000 --> 00:01:04,000
+Is ID se edit ke baad purane aur naye investigation ko compare karoge.
+
+13
+00:01:04,000 --> 00:01:09,000
+Ab demo mein quantity limit sau se pachaas karte hain.
+
+14
+00:01:09,000 --> 00:01:14,000
+Callers wahi reh sakte hain, lekin function ka behavior badal gaya.
+
+15
+00:01:14,000 --> 00:01:19,000
+Ab current Git diff par investigation dobara chalao.
+
+16
+00:01:19,000 --> 00:01:24,000
+Tool changed validator aur usse connected endpoints dikhata hai.
+
+17
+00:01:24,000 --> 00:01:30,000
+Compare body change detect karta hai, chahe connections same hon.
+
+18
+00:01:30,000 --> 00:01:36,000
+Naya express endpoint add karne par added route bhi dikhai deta hai.
+
+19
+00:01:36,000 --> 00:01:42,000
+Ab related tests khud run karo. Investigation command tests execute nahi karti.
+
+20
+00:01:42,000 --> 00:01:48,000
+Teen tests fail hue. Purane tests ab bhi quantity sau ko valid maante hain.
+
+21
+00:01:48,000 --> 00:01:52,000
+Tool context aur evidence deta hai. Har runtime effect prove nahi karta.
+
+22
+00:01:52,000 --> 00:01:56,000
+Dynamic calls aur candidate matches ko review karo. Core analysis ko AI key nahi
+chahiye.
+
+23
+00:01:56,000 --> 00:02:00,000
+Agla code change karne se pehle trace, baseline aur comparison use karo.

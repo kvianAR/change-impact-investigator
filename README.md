@@ -2,10 +2,10 @@
 
 # Change Impact Investigator
 
-### Know what a function change can reach.
+### Understand the impact before you edit.
 
 Trace callers, imports, API endpoints, and related tests across Python and TypeScript.<br>
-Give your coding agent source evidence before the edit, then compare the impact afterward.
+Inspect source evidence, save a baseline, and see what changed after the edit.
 
 [![CI](https://github.com/kvianAR/change-impact-investigator/actions/workflows/ci.yml/badge.svg)](https://github.com/kvianAR/change-impact-investigator/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/kvianAR/change-impact-investigator?color=6366f1)](https://github.com/kvianAR/change-impact-investigator/releases/latest)
@@ -13,22 +13,46 @@ Give your coding agent source evidence before the edit, then compare the impact 
 [![TypeScript](https://img.shields.io/badge/TypeScript-optional-3178C6?logo=typescript&logoColor=white)](#language-and-framework-support)
 [![License](https://img.shields.io/badge/License-MIT-22c55e)](LICENSE)
 
-[Quick start](#quick-start) · [See the demo](#a-shared-validator-two-affected-endpoints) · [Models panel](#your-provider-your-model) · [MCP setup](docs/USAGE.md#connect-an-mcp-client)
+[Watch the demo](#watch-the-2-minute-demo) · [Quick start](#quick-start) · [Models panel](#your-provider-your-model) · [MCP setup](docs/USAGE.md#connect-an-mcp-client)
 
 </div>
 
 ---
 
+## Watch the 2-minute demo
+
+[![Watch the Change Impact Investigator demo with Roman Hinglish subtitles](docs/media/demo-preview.jpg)](https://github.com/kvianAR/change-impact-investigator/releases/download/v0.3.0/change-impact-investigator-demo.mp4)
+
+<div align="center">
+
+**[Open / download the video](https://github.com/kvianAR/change-impact-investigator/releases/download/v0.3.0/change-impact-investigator-demo.mp4)** · **[Download subtitles](https://github.com/kvianAR/change-impact-investigator/releases/download/v0.3.0/change-impact-demo-hi.srt)**
+
+2 minutes · Roman Hinglish subtitles · Silent walkthrough · Actual captured CLI evidence
+
+</div>
+
+| Jump to | What the walkthrough covers |
+| --- | --- |
+| **00:08** | Choose a function and trace its callers |
+| **00:30** | Find connected endpoints and related tests |
+| **00:54** | Save a baseline, then change the validator |
+| **01:14** | Reinspect the Git diff and compare connections |
+| **01:36** | Run tests and review what static analysis can establish |
+
+The video presents real CLI evidence in a readable terminal layout. It shows three intentional test failures after lowering the demo validator's quantity limit. Subtitles are burned into the video and included as a selectable track. A separate [SRT file](docs/media/change-impact-demo-hi.srt) is also available.
+
 ## “If I change this function, what else could be affected?”
 
-A shared validator can sit behind several services, routes, and tests. Change Impact Investigator follows those relationships and returns file-and-line references your agent can inspect.
+A shared validator can sit behind several services, routes, and tests. Change Impact Investigator follows those relationships and returns file-and-line references your coding agent can inspect.
 
-- **Follow the callers.** Find direct and transitive calls, imports, aliases, and supported method relationships.
-- **Find the exposed paths.** Connect affected code to supported FastAPI, Flask, Django, and Express registrations.
-- **Bring the tests along.** Discover related tests, fixture links, and HTTP request candidates.
-- **Inspect the actual diff.** Include staged, unstaged, untracked, and deleted source files.
-- **Compare before and after.** Track source changes and added or removed graph connections.
-- **Keep uncertainty visible.** Review unresolved dynamic calls, candidate matches, parse diagnostics, and traversal limits.
+| Your question | Evidence the tool provides |
+| --- | --- |
+| **Who calls this?** | Direct and transitive callers, imports, aliases, and supported method relationships |
+| **Which endpoints can this reach?** | Supported FastAPI, Flask, Django, and Express registrations |
+| **Which tests should I review?** | Related tests, pytest fixture links, and HTTP request candidates |
+| **What does this Git diff affect?** | Impact from staged, unstaged, untracked, and deleted source files |
+| **What changed after my edit?** | Source changes and added or removed graph connections |
+| **Where is the analysis uncertain?** | Dynamic calls, candidate matches, diagnostics, and traversal limits |
 
 > Core investigation runs locally without an API key. Optional AI summaries add a readable explanation alongside the original evidence.
 
@@ -215,6 +239,9 @@ change-impact inspect-change-impact --repo /path/to/mixed-repo --language auto
 npm test
 ```
 
+<details>
+<summary><strong>Evidence, analysis limits, and index caching</strong></summary>
+
 ## Evidence you can inspect
 
 Call edges include the call site and target definition. Import evidence records the alias, target, file, line, and lexical scope. Constructor-based inference is labeled. Reports include source hashes, parse diagnostics, duplicate-module diagnostics, and traversal truncation flags.
@@ -238,6 +265,8 @@ change-impact index --repo /path/to/repo
 ```
 
 Source analysis reads project files without importing or executing project code. TypeScript analysis runs the trusted Node/compiler runtime.
+
+</details>
 
 ## Verification and development
 
@@ -272,6 +301,6 @@ ruff format --check .
 
 <div align="center">
 
-[Get the latest release](https://github.com/kvianAR/change-impact-investigator/releases/latest) · [Report an issue](https://github.com/kvianAR/change-impact-investigator/issues) · [MIT license](LICENSE)
+[Watch the demo](#watch-the-2-minute-demo) · [Get the latest release](https://github.com/kvianAR/change-impact-investigator/releases/latest) · [Report an issue](https://github.com/kvianAR/change-impact-investigator/issues) · [MIT license](LICENSE)
 
 </div>
